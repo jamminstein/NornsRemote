@@ -1,0 +1,307 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		AB000021 /* NornsMenuBarIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000020 /* NornsMenuBarIcon.swift */; };
+		AA000001 /* NornsRemoteApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000001; };
+		AA000002 /* NornsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000002; };
+		AA000003 /* ScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000003; };
+		AA000004 /* EncoderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000004; };
+		AA000005 /* ButtonView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000005; };
+		AA000006 /* NornsConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000006; };
+		AA000007 /* OSCClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000007; };
+		AA000008 /* MaidenWebSocket.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000008; };
+		AA000009 /* ScreenFetcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000009; };
+		AA000010 /* OSCMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000010; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		AB000001 /* NornsRemoteApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NornsRemoteApp.swift; sourceTree = "<group>"; };
+		AB000002 /* NornsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NornsView.swift; sourceTree = "<group>"; };
+		AB000003 /* ScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenView.swift; sourceTree = "<group>"; };
+		AB000004 /* EncoderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EncoderView.swift; sourceTree = "<group>"; };
+		AB000020 /* NornsMenuBarIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NornsMenuBarIcon.swift; sourceTree = "<group>"; };
+		AB000005 /* ButtonView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ButtonView.swift; sourceTree = "<group>"; };
+		AB000006 /* NornsConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NornsConnection.swift; sourceTree = "<group>"; };
+		AB000007 /* OSCClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OSCClient.swift; sourceTree = "<group>"; };
+		AB000008 /* MaidenWebSocket.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MaidenWebSocket.swift; sourceTree = "<group>"; };
+		AB000009 /* ScreenFetcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenFetcher.swift; sourceTree = "<group>"; };
+		AB000010 /* OSCMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OSCMessage.swift; sourceTree = "<group>"; };
+		AB000011 /* NornsRemote.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = NornsRemote.entitlements; sourceTree = "<group>"; };
+		AC000001 /* NornsRemote.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NornsRemote.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		AD000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		AE000001 = {
+			isa = PBXGroup;
+			children = (
+				AE000002 /* NornsRemote */,
+				AE000007 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		AE000002 /* NornsRemote */ = {
+			isa = PBXGroup;
+			children = (
+				AB000001 /* NornsRemoteApp.swift */,
+				AB000011 /* NornsRemote.entitlements */,
+				AE000003 /* Models */,
+				AE000004 /* Network */,
+				AE000005 /* Views */,
+				AE000006 /* Utilities */,
+			);
+			path = NornsRemote;
+			sourceTree = "<group>";
+		};
+		AE000003 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				AB000006 /* NornsConnection.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		AE000004 /* Network */ = {
+			isa = PBXGroup;
+			children = (
+				AB000007 /* OSCClient.swift */,
+				AB000008 /* MaidenWebSocket.swift */,
+				AB000009 /* ScreenFetcher.swift */,
+			);
+			path = Network;
+			sourceTree = "<group>";
+		};
+		AE000005 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				AB000002 /* NornsView.swift */,
+				AB000003 /* ScreenView.swift */,
+				AB000004 /* EncoderView.swift */,
+				AB000005 /* ButtonView.swift */,
+				AB000020 /* NornsMenuBarIcon.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		AE000006 /* Utilities */ = {
+			isa = PBXGroup;
+			children = (
+				AB000010 /* OSCMessage.swift */,
+			);
+			path = Utilities;
+			sourceTree = "<group>";
+		};
+		AE000007 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				AC000001 /* NornsRemote.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		AF000001 /* NornsRemote */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B1000001 /* Build configuration list for PBXNativeTarget "NornsRemote" */;
+			buildPhases = (
+				B0000001 /* Sources */,
+				AD000001 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = NornsRemote;
+			productName = NornsRemote;
+			productReference = AC000001 /* NornsRemote.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		B2000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 1500;
+			};
+			buildConfigurationList = B1000002 /* Build configuration list for PBXProject "NornsRemote" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = AE000001;
+			productRefGroup = AE000007 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				AF000001 /* NornsRemote */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		B0000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA000001 /* NornsRemoteApp.swift in Sources */,
+				AA000002 /* NornsView.swift in Sources */,
+				AA000003 /* ScreenView.swift in Sources */,
+				AA000004 /* EncoderView.swift in Sources */,
+				AA000005 /* ButtonView.swift in Sources */,
+				AA000006 /* NornsConnection.swift in Sources */,
+				AA000007 /* OSCClient.swift in Sources */,
+				AA000008 /* MaidenWebSocket.swift in Sources */,
+				AA000009 /* ScreenFetcher.swift in Sources */,
+				AA000010 /* OSCMessage.swift in Sources */,
+				AB000021 /* NornsMenuBarIcon.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		B3000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		B3000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		B3000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = NornsRemote/NornsRemote.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSMainStoryboardFile = "";
+				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tiago.NornsRemote;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		B3000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = NornsRemote/NornsRemote.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSMainStoryboardFile = "";
+				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tiago.NornsRemote;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		B1000001 /* Build configuration list for PBXNativeTarget "NornsRemote" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B3000003 /* Debug */,
+				B3000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B1000002 /* Build configuration list for PBXProject "NornsRemote" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B3000001 /* Debug */,
+				B3000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+	};
+	rootObject = B2000001 /* Project object */;
+}
