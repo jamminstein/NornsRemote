@@ -71,54 +71,54 @@ struct NornsView: View {
                     .frame(width: w, height: h)
                     .allowsHitTesting(false)
 
-                // Components — matched to photo proportions
+                // Components — pixel-measured from norns photo (700×452 grid)
                 ZStack(alignment: .topLeading) {
                     Color.clear.frame(width: w, height: h)
 
-                    // K1 — upper left, small
-                    ButtonView(size: 38 * scale,
+                    // K1 — upper left
+                    ButtonView(size: 47 * scale,
                               onPress: { norns.keyPress(1) },
                               onRelease: { norns.keyRelease(1) })
-                        .position(x: 133 * scale, y: 175 * scale)
+                        .position(x: 102 * scale, y: 170 * scale)
 
-                    // E1 — right of K1, larger
-                    EncoderView(size: 72 * scale) { delta in
+                    // E1 — right of K1
+                    EncoderView(size: 65 * scale) { delta in
                         norns.encoderTurn(1, delta: delta)
                     }
-                    .position(x: 215 * scale, y: 170 * scale)
+                    .position(x: 202 * scale, y: 156 * scale)
 
-                    // Screen — lower left, 2:1 ratio
+                    // Screen — lower left, 128×64 OLED (2:1)
                     ScreenView(
                         image: norns.screenImage,
-                        width: 266 * scale,
-                        height: 133 * scale,
+                        width: 292 * scale,
+                        height: 146 * scale,
                         connectionHealth: norns.connectionHealth
                     )
-                    .position(x: 196 * scale, y: 305 * scale)
+                    .position(x: 220 * scale, y: 318 * scale)
 
-                    // E2 — right side, vertically centered
-                    EncoderView(size: 72 * scale) { delta in
+                    // E2 — right side
+                    EncoderView(size: 65 * scale) { delta in
                         norns.encoderTurn(2, delta: delta)
                     }
-                    .position(x: 455 * scale, y: 215 * scale)
+                    .position(x: 463 * scale, y: 262 * scale)
 
-                    // E3 — right of E2
-                    EncoderView(size: 72 * scale) { delta in
+                    // E3 — far right, same height as E2
+                    EncoderView(size: 65 * scale) { delta in
                         norns.encoderTurn(3, delta: delta)
                     }
-                    .position(x: 570 * scale, y: 215 * scale)
+                    .position(x: 587 * scale, y: 262 * scale)
 
-                    // K2 — below E2, shifted slightly left
-                    ButtonView(size: 38 * scale,
+                    // K2 — directly below E2
+                    ButtonView(size: 43 * scale,
                               onPress: { norns.keyPress(2) },
                               onRelease: { norns.keyRelease(2) })
-                        .position(x: 440 * scale, y: 340 * scale)
+                        .position(x: 463 * scale, y: 363 * scale)
 
-                    // K3 — between E2 and E3, closer together than encoders
-                    ButtonView(size: 38 * scale,
+                    // K3 — below E3, slightly inward
+                    ButtonView(size: 43 * scale,
                               onPress: { norns.keyPress(3) },
                               onRelease: { norns.keyRelease(3) })
-                        .position(x: 520 * scale, y: 340 * scale)
+                        .position(x: 573 * scale, y: 363 * scale)
                 }
                 .frame(width: w, height: h)
             }
