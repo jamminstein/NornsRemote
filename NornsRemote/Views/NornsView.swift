@@ -5,10 +5,10 @@ struct NornsView: View {
 
     var body: some View {
         Group {
-            if norns.miniMode {
-                miniView
-            } else {
-                fullView
+            switch norns.viewMode {
+            case .full: fullView
+            case .mini: miniView
+            case .custom: customView
             }
         }
         .ignoresSafeArea()
@@ -40,11 +40,8 @@ struct NornsView: View {
 
     // MARK: - Full Hardware View
 
-    private let cr: CGFloat = 16
-
     private var fullView: some View {
         GeometryReader { geo in
-            // Real norns proportions: ~1.55:1
             let bw: CGFloat = 700
             let bh: CGFloat = 452
             let scale = min(geo.size.width / (bw + 16), geo.size.height / (bh + 16))
@@ -52,11 +49,9 @@ struct NornsView: View {
             let h: CGFloat = bh * scale
 
             ZStack {
-                // Fill window with body color
                 Color(red: 0.70, green: 0.67, blue: 0.64)
                     .contextMenu { contextMenuItems }
 
-                // Main body
                 RoundedRectangle(cornerRadius: 6 * scale)
                     .fill(
                         LinearGradient(
@@ -71,50 +66,42 @@ struct NornsView: View {
                     .frame(width: w, height: h)
                     .allowsHitTesting(false)
 
-                // Components — pixel-measured from norns photo (700×452 grid)
                 ZStack(alignment: .topLeading) {
                     Color.clear.frame(width: w, height: h)
 
-                    // K1 — upper left
                     ButtonView(size: 47 * scale,
                               onPress: { norns.keyPress(1) },
                               onRelease: { norns.keyRelease(1) })
                         .position(x: 102 * scale, y: 170 * scale)
 
-                    // E1 — right of K1
                     EncoderView(size: 65 * scale) { delta in
                         norns.encoderTurn(1, delta: delta)
                     }
                     .position(x: 202 * scale, y: 156 * scale)
 
-                    // Screen — lower left, 128×64 OLED (2:1)
                     ScreenView(
                         image: norns.screenImage,
-                        width: 292 * scale,
-                        height: 146 * scale,
+                        width: 320 * scale,
+                        height: 160 * scale,
                         connectionHealth: norns.connectionHealth
                     )
                     .position(x: 220 * scale, y: 318 * scale)
 
-                    // E2 — right side
                     EncoderView(size: 65 * scale) { delta in
                         norns.encoderTurn(2, delta: delta)
                     }
                     .position(x: 463 * scale, y: 262 * scale)
 
-                    // E3 — far right, same height as E2
                     EncoderView(size: 65 * scale) { delta in
                         norns.encoderTurn(3, delta: delta)
                     }
                     .position(x: 587 * scale, y: 262 * scale)
 
-                    // K2 — directly below E2
                     ButtonView(size: 43 * scale,
                               onPress: { norns.keyPress(2) },
                               onRelease: { norns.keyRelease(2) })
                         .position(x: 463 * scale, y: 363 * scale)
 
-                    // K3 — below E3, slightly inward
                     ButtonView(size: 43 * scale,
                               onPress: { norns.keyPress(3) },
                               onRelease: { norns.keyRelease(3) })
@@ -127,17 +114,184 @@ struct NornsView: View {
         .ignoresSafeArea()
     }
 
+    // MARK: - Custom Mode
+
+    private var customView: some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            let h = geo.size.height
+            let editing = norns.isEditingLayout
+            let layout = norns.customLayout
+
+            ZStack {
+                Color(red: 0.14, green: 0.14, blue: 0.14)
+                    .contextMenu { contextMenuItems }
+
+                // Screen
+                customComponent(
+                    layout: layout.screen,
+                    keyPath: \.screen,
+                    windowSize: geo.size
+                ) {
+                    ScreenView(
+                        image: norns.screenImage,
+                        width: CustomLayout.baseScreenW * layout.screen.scale,
+                        height: CustomLayout.baseScreenH * layout.screen.scale,
+                        connectionHealth: norns.connectionHealth
+                    )
+                }
+
+                // K1
+                customComponent(layout: layout.k1, keyPath: \.k1, windowSize: geo.size) {
+                    ButtonView(size: CustomLayout.baseButtonK1 * layout.k1.scale,
+                              onPress: { norns.keyPress(1) },
+                              onRelease: { norns.keyRelease(1) })
+                }
+
+                // E1
+                customComponent(layout: layout.e1, keyPath: \.e1, windowSize: geo.size) {
+                    EncoderView(size: CustomLayout.baseEncoder * layout.e1.scale) { delta in
+                        norns.encoderTurn(1, delta: delta)
+                    }
+                }
+
+                // E2
+                customComponent(layout: layout.e2, keyPath: \.e2, windowSize: geo.size) {
+                    EncoderView(size: CustomLayout.baseEncoder * layout.e2.scale) { delta in
+                        norns.encoderTurn(2, delta: delta)
+                    }
+                }
+
+                // E3
+                customComponent(layout: layout.e3, keyPath: \.e3, windowSize: geo.size) {
+                    EncoderView(size: CustomLayout.baseEncoder * layout.e3.scale) { delta in
+                        norns.encoderTurn(3, delta: delta)
+                    }
+                }
+
+                // K2
+                customComponent(layout: layout.k2, keyPath: \.k2, windowSize: geo.size) {
+                    ButtonView(size: CustomLayout.baseButton * layout.k2.scale,
+                              onPress: { norns.keyPress(2) },
+                              onRelease: { norns.keyRelease(2) })
+                }
+
+                // K3
+                customComponent(layout: layout.k3, keyPath: \.k3, windowSize: geo.size) {
+                    ButtonView(size: CustomLayout.baseButton * layout.k3.scale,
+                              onPress: { norns.keyPress(3) },
+                              onRelease: { norns.keyRelease(3) })
+                }
+
+                // Edit mode indicator
+                if editing {
+                    VStack {
+                        HStack {
+                            Text("EDIT MODE")
+                                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                .foregroundColor(.white.opacity(0.5))
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.white.opacity(0.1))
+                                .cornerRadius(4)
+                            Spacer()
+                        }
+                        Spacer()
+                    }
+                    .padding(8)
+                    .allowsHitTesting(false)
+                }
+            }
+            .frame(width: w, height: h)
+        }
+        .ignoresSafeArea()
+    }
+
+    @ViewBuilder
+    private func customComponent<Content: View>(
+        layout: ComponentLayout,
+        keyPath: WritableKeyPath<CustomLayout, ComponentLayout>,
+        windowSize: CGSize,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        let editing = norns.isEditingLayout
+        let posX = layout.x * windowSize.width
+        let posY = layout.y * windowSize.height
+
+        content()
+            .position(x: posX, y: posY)
+            .overlay(
+                Group {
+                    if editing {
+                        RoundedRectangle(cornerRadius: 4)
+                            .stroke(Color.cyan.opacity(0.6), lineWidth: 1.5)
+                            .position(x: posX, y: posY)
+                            .allowsHitTesting(false)
+                    }
+                }
+            )
+            .overlay(
+                Group {
+                    if editing {
+                        Color.clear
+                            .contentShape(Rectangle())
+                            .frame(width: 80, height: 80)
+                            .position(x: posX, y: posY)
+                            .gesture(
+                                DragGesture()
+                                    .onChanged { value in
+                                        var comp = norns.customLayout[keyPath: keyPath]
+                                        comp.x = value.location.x / windowSize.width
+                                        comp.y = value.location.y / windowSize.height
+                                        norns.customLayout[keyPath: keyPath] = comp
+                                    }
+                                    .onEnded { _ in
+                                        norns.saveCustomLayout()
+                                    }
+                            )
+                            .onScrollWheel { delta in
+                                var comp = norns.customLayout[keyPath: keyPath]
+                                comp.scale = max(0.3, min(3.0, comp.scale + delta * 0.05))
+                                norns.customLayout[keyPath: keyPath] = comp
+                                norns.saveCustomLayout()
+                            }
+                    }
+                }
+            )
+    }
+
     // MARK: - Context Menu
 
     @ViewBuilder
     private var contextMenuItems: some View {
-        Toggle("Mini Mode", isOn: Binding(
-            get: { norns.miniMode },
-            set: { newVal in
-                norns.miniMode = newVal
-                resizeWindow(mini: newVal)
+        Button(norns.viewMode == .full ? "Full Mode ✓" : "Full Mode") {
+            norns.viewMode = .full
+            norns.isEditingLayout = false
+            resizeWindow(mode: .full)
+        }
+        Button(norns.viewMode == .custom ? "Custom Mode ✓" : "Custom Mode") {
+            norns.viewMode = .custom
+            resizeWindow(mode: .custom)
+        }
+        Button(norns.viewMode == .mini ? "Mini Mode ✓" : "Mini Mode") {
+            norns.viewMode = .mini
+            norns.isEditingLayout = false
+            resizeWindow(mode: .mini)
+        }
+
+        if norns.viewMode == .custom {
+            Divider()
+            Button(norns.isEditingLayout ? "Done Editing" : "Edit Layout") {
+                norns.isEditingLayout.toggle()
+                if !norns.isEditingLayout {
+                    norns.saveCustomLayout()
+                }
             }
-        ))
+            Button("Reset Layout") {
+                norns.customLayout = CustomLayout()
+                norns.saveCustomLayout()
+            }
+        }
 
         Divider()
 
@@ -158,22 +312,26 @@ struct NornsView: View {
 
     // MARK: - Window Resize
 
-    private func resizeWindow(mini: Bool) {
+    private func resizeWindow(mode: NornsConnection.ViewMode) {
         guard let window = NSApplication.shared.windows.first else { return }
-        if mini {
+        let origin = window.frame.origin
+        switch mode {
+        case .mini:
             window.contentAspectRatio = NSSize(width: 2, height: 1)
             window.contentMinSize = NSSize(width: 400, height: 200)
             window.minSize = NSSize(width: 400, height: 200)
-            let frame = NSRect(x: window.frame.origin.x, y: window.frame.origin.y,
-                             width: 400, height: 200)
-            window.setFrame(frame, display: true, animate: true)
-        } else {
+            window.setFrame(NSRect(x: origin.x, y: origin.y, width: 400, height: 200),
+                          display: true, animate: true)
+        case .full:
             window.contentAspectRatio = NSSize(width: 716, height: 440)
             window.contentMinSize = NSSize(width: 370, height: 230)
             window.minSize = NSSize(width: 370, height: 230)
-            let frame = NSRect(x: window.frame.origin.x, y: window.frame.origin.y,
-                             width: 716, height: 440)
-            window.setFrame(frame, display: true, animate: true)
+            window.setFrame(NSRect(x: origin.x, y: origin.y, width: 716, height: 440),
+                          display: true, animate: true)
+        case .custom:
+            window.contentAspectRatio = NSSize(width: 0, height: 0)
+            window.contentMinSize = NSSize(width: 300, height: 200)
+            window.minSize = NSSize(width: 300, height: 200)
         }
     }
 }

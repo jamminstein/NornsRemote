@@ -36,9 +36,30 @@ struct MenuBarView: View {
 
     var body: some View {
         // Mode
-        Button(norns.miniMode ? "Full Mode" : "Mini Mode") {
-            norns.miniMode.toggle()
-            resizeWindow(mini: norns.miniMode)
+        Button(norns.viewMode == .full ? "Full Mode ✓" : "Full Mode") {
+            norns.viewMode = .full
+            norns.isEditingLayout = false
+            resizeWindow(mode: .full)
+        }
+        Button(norns.viewMode == .custom ? "Custom Mode ✓" : "Custom Mode") {
+            norns.viewMode = .custom
+            resizeWindow(mode: .custom)
+        }
+        Button(norns.viewMode == .mini ? "Mini Mode ✓" : "Mini Mode") {
+            norns.viewMode = .mini
+            norns.isEditingLayout = false
+            resizeWindow(mode: .mini)
+        }
+        if norns.viewMode == .custom {
+            Divider()
+            Button(norns.isEditingLayout ? "Done Editing" : "Edit Layout") {
+                norns.isEditingLayout.toggle()
+                if !norns.isEditingLayout { norns.saveCustomLayout() }
+            }
+            Button("Reset Layout") {
+                norns.customLayout = CustomLayout()
+                norns.saveCustomLayout()
+            }
         }
 
         Divider()
@@ -71,18 +92,20 @@ struct MenuBarView: View {
         }
     }
 
-    private func resizeWindow(mini: Bool) {
+    private func resizeWindow(mode: NornsConnection.ViewMode) {
         guard let window = NSApplication.shared.windows.first else { return }
-        if mini {
+        let origin = window.frame.origin
+        switch mode {
+        case .mini:
             window.contentAspectRatio = NSSize(width: 2, height: 1)
-            let frame = NSRect(x: window.frame.origin.x, y: window.frame.origin.y,
-                             width: 400, height: 200)
-            window.setFrame(frame, display: true, animate: true)
-        } else {
+            window.setFrame(NSRect(x: origin.x, y: origin.y, width: 400, height: 200),
+                          display: true, animate: true)
+        case .full:
             window.contentAspectRatio = NSSize(width: 716, height: 440)
-            let frame = NSRect(x: window.frame.origin.x, y: window.frame.origin.y,
-                             width: 740, height: 460)
-            window.setFrame(frame, display: true, animate: true)
+            window.setFrame(NSRect(x: origin.x, y: origin.y, width: 740, height: 460),
+                          display: true, animate: true)
+        case .custom:
+            window.contentAspectRatio = NSSize(width: 0, height: 0)
         }
     }
 }

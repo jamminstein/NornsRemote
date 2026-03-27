@@ -10,7 +10,12 @@ final class NornsConnection {
     var screenImage: CGImage?
     var scripts: [String] = []
     var currentScript: String = ""
-    var miniMode = false
+    enum ViewMode: String, CaseIterable {
+        case full, custom, mini
+    }
+    var viewMode: ViewMode = .full
+    var isEditingLayout = false
+    var customLayout = CustomLayout.load()
 
     private var failCount = 0
 
@@ -97,6 +102,10 @@ final class NornsConnection {
         osc.sendKey(n, state: 0)
     }
 
+    func saveCustomLayout() {
+        customLayout.save()
+    }
+
     // MARK: - Screen Polling
 
     @MainActor
@@ -130,5 +139,45 @@ final class NornsConnection {
             // ~5 FPS to be safe
             try? await Task.sleep(for: .milliseconds(120))
         }
+    }
+}
+
+// MARK: - Custom Layout
+
+struct ComponentLayout: Codable, Equatable {
+    var x: CGFloat    // center X as fraction of window width (0–1)
+    var y: CGFloat    // center Y as fraction of window height (0–1)
+    var scale: CGFloat // size multiplier (1.0 = default)
+}
+
+struct CustomLayout: Codable, Equatable {
+    // Defaults match the full-mode photo proportions
+    var screen = ComponentLayout(x: 0.314, y: 0.704, scale: 1.0)
+    var k1 = ComponentLayout(x: 0.146, y: 0.376, scale: 1.0)
+    var e1 = ComponentLayout(x: 0.289, y: 0.345, scale: 1.0)
+    var e2 = ComponentLayout(x: 0.661, y: 0.580, scale: 1.0)
+    var e3 = ComponentLayout(x: 0.839, y: 0.580, scale: 1.0)
+    var k2 = ComponentLayout(x: 0.661, y: 0.803, scale: 1.0)
+    var k3 = ComponentLayout(x: 0.819, y: 0.803, scale: 1.0)
+
+    static let baseEncoder: CGFloat = 65
+    static let baseButtonK1: CGFloat = 47
+    static let baseButton: CGFloat = 43
+    static let baseScreenW: CGFloat = 320
+    static let baseScreenH: CGFloat = 160
+
+    private static let key = "NornsCustomLayout"
+
+    func save() {
+        if let data = try? JSONEncoder().encode(self) {
+            UserDefaults.standard.set(data, forKey: Self.key)
+        }
+    }
+
+    static func load() -> CustomLayout {
+        guard let data = UserDefaults.standard.data(forKey: key),
+              let layout = try? JSONDecoder().decode(CustomLayout.self, from: data)
+        else { return CustomLayout() }
+        return layout
     }
 }
