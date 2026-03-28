@@ -185,21 +185,20 @@ struct MenuBarView: View {
 
         // Audio Control
         Menu("Audio") {
-            Button(norns.isStreamingAudio ? "Stop Streaming" : "Stream to Mac") {
+            Button(norns.isStreamingAudio ? "⏹ Stop Streaming" : "▶ Stream to Mac") {
                 norns.toggleAudioStream()
             }
             Divider()
-            Button(norns.isMuted ? "Unmute" : "Mute Norns") {
+            Button(norns.isMuted ? "🔇 Unmute" : "🔈 Mute") {
                 norns.toggleMute()
             }
             Divider()
-            Slider(value: Binding(
-                get: { norns.volume },
-                set: { norns.setVolume($0) }
-            ), in: 0...1) {
-                Text("Volume")
-            }
-            .frame(width: 180)
+            let pct = Int(norns.volume * 100)
+            let bar = String(repeating: "█", count: pct / 10) + String(repeating: "░", count: 10 - pct / 10)
+            Text("Vol: \(bar) \(pct)%")
+                .font(.system(size: 11, design: .monospaced))
+            Button("    ＋ Volume Up") { norns.setVolume(min(1, norns.volume + 0.1)) }
+            Button("    ﹣ Volume Down") { norns.setVolume(max(0, norns.volume - 0.1)) }
         }
 
         Divider()
