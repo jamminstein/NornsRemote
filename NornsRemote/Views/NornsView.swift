@@ -157,61 +157,48 @@ struct NornsView: View {
                 customBackground
                     .contextMenu { contextMenuItems }
 
-                // Components — disabled during edit so drag handles work
-                ButtonView(size: CustomLayout.baseButtonK1 * s,
-                          onPress: { norns.keyPress(1) },
-                          onRelease: { norns.keyRelease(1) })
-                    .position(x: norns.customLayout.k1.x * size.width,
-                             y: norns.customLayout.k1.y * size.height)
-                    .allowsHitTesting(!norns.isEditingLayout)
-
-                EncoderView(size: CustomLayout.baseEncoder * s) { delta in
-                    norns.encoderTurn(1, delta: delta)
-                }
-                .position(x: norns.customLayout.e1.x * size.width,
-                         y: norns.customLayout.e1.y * size.height)
-                .allowsHitTesting(!norns.isEditingLayout)
-
-                ScreenView(
-                    image: norns.screenImage,
-                    width: CustomLayout.baseScreenW * s,
-                    height: CustomLayout.baseScreenH * s,
-                    connectionHealth: norns.connectionHealth
-                )
-                .position(x: norns.customLayout.screen.x * size.width,
-                         y: norns.customLayout.screen.y * size.height)
-                .allowsHitTesting(!norns.isEditingLayout)
-
-                EncoderView(size: CustomLayout.baseEncoder * s) { delta in
-                    norns.encoderTurn(2, delta: delta)
-                }
-                .position(x: norns.customLayout.e2.x * size.width,
-                         y: norns.customLayout.e2.y * size.height)
-                .allowsHitTesting(!norns.isEditingLayout)
-
-                EncoderView(size: CustomLayout.baseEncoder * s) { delta in
-                    norns.encoderTurn(3, delta: delta)
-                }
-                .position(x: norns.customLayout.e3.x * size.width,
-                         y: norns.customLayout.e3.y * size.height)
-                .allowsHitTesting(!norns.isEditingLayout)
-
-                ButtonView(size: CustomLayout.baseButton * s,
-                          onPress: { norns.keyPress(2) },
-                          onRelease: { norns.keyRelease(2) })
-                    .position(x: norns.customLayout.k2.x * size.width,
-                             y: norns.customLayout.k2.y * size.height)
-                    .allowsHitTesting(!norns.isEditingLayout)
-
-                ButtonView(size: CustomLayout.baseButton * s,
-                          onPress: { norns.keyPress(3) },
-                          onRelease: { norns.keyRelease(3) })
-                    .position(x: norns.customLayout.k3.x * size.width,
-                             y: norns.customLayout.k3.y * size.height)
-                    .allowsHitTesting(!norns.isEditingLayout)
-
-                // Edit overlay handles
                 if norns.isEditingLayout {
+                    // EDIT MODE: static placeholders + draggable handles
+                    // No real ButtonView/EncoderView — their NSViews steal mouse events
+
+                    // Static placeholder circles for knobs/buttons
+                    Circle()
+                        .fill(Color(white: 0.25))
+                        .frame(width: CustomLayout.baseButtonK1 * s, height: CustomLayout.baseButtonK1 * s)
+                        .position(x: norns.customLayout.k1.x * size.width,
+                                 y: norns.customLayout.k1.y * size.height)
+                    Circle()
+                        .fill(Color(white: 0.25))
+                        .frame(width: CustomLayout.baseEncoder * s, height: CustomLayout.baseEncoder * s)
+                        .position(x: norns.customLayout.e1.x * size.width,
+                                 y: norns.customLayout.e1.y * size.height)
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(.black)
+                        .frame(width: CustomLayout.baseScreenW * s, height: CustomLayout.baseScreenH * s)
+                        .position(x: norns.customLayout.screen.x * size.width,
+                                 y: norns.customLayout.screen.y * size.height)
+                    Circle()
+                        .fill(Color(white: 0.25))
+                        .frame(width: CustomLayout.baseEncoder * s, height: CustomLayout.baseEncoder * s)
+                        .position(x: norns.customLayout.e2.x * size.width,
+                                 y: norns.customLayout.e2.y * size.height)
+                    Circle()
+                        .fill(Color(white: 0.25))
+                        .frame(width: CustomLayout.baseEncoder * s, height: CustomLayout.baseEncoder * s)
+                        .position(x: norns.customLayout.e3.x * size.width,
+                                 y: norns.customLayout.e3.y * size.height)
+                    Circle()
+                        .fill(Color(white: 0.25))
+                        .frame(width: CustomLayout.baseButton * s, height: CustomLayout.baseButton * s)
+                        .position(x: norns.customLayout.k2.x * size.width,
+                                 y: norns.customLayout.k2.y * size.height)
+                    Circle()
+                        .fill(Color(white: 0.25))
+                        .frame(width: CustomLayout.baseButton * s, height: CustomLayout.baseButton * s)
+                        .position(x: norns.customLayout.k3.x * size.width,
+                                 y: norns.customLayout.k3.y * size.height)
+
+                    // Drag handles on top
                     DragHandle(layout: $norns.customLayout.k1, containerSize: size,
                               handleWidth: CustomLayout.baseButtonK1 * s,
                               handleHeight: CustomLayout.baseButtonK1 * s, label: "K1")
@@ -242,6 +229,53 @@ struct NornsView: View {
                         .background(Color.black.opacity(0.5))
                         .cornerRadius(4)
                         .position(x: size.width / 2, y: 20)
+
+                } else {
+                    // PLAY MODE: real interactive components
+                    ButtonView(size: CustomLayout.baseButtonK1 * s,
+                              onPress: { norns.keyPress(1) },
+                              onRelease: { norns.keyRelease(1) })
+                        .position(x: norns.customLayout.k1.x * size.width,
+                                 y: norns.customLayout.k1.y * size.height)
+
+                    EncoderView(size: CustomLayout.baseEncoder * s) { delta in
+                        norns.encoderTurn(1, delta: delta)
+                    }
+                    .position(x: norns.customLayout.e1.x * size.width,
+                             y: norns.customLayout.e1.y * size.height)
+
+                    ScreenView(
+                        image: norns.screenImage,
+                        width: CustomLayout.baseScreenW * s,
+                        height: CustomLayout.baseScreenH * s,
+                        connectionHealth: norns.connectionHealth
+                    )
+                    .position(x: norns.customLayout.screen.x * size.width,
+                             y: norns.customLayout.screen.y * size.height)
+
+                    EncoderView(size: CustomLayout.baseEncoder * s) { delta in
+                        norns.encoderTurn(2, delta: delta)
+                    }
+                    .position(x: norns.customLayout.e2.x * size.width,
+                             y: norns.customLayout.e2.y * size.height)
+
+                    EncoderView(size: CustomLayout.baseEncoder * s) { delta in
+                        norns.encoderTurn(3, delta: delta)
+                    }
+                    .position(x: norns.customLayout.e3.x * size.width,
+                             y: norns.customLayout.e3.y * size.height)
+
+                    ButtonView(size: CustomLayout.baseButton * s,
+                              onPress: { norns.keyPress(2) },
+                              onRelease: { norns.keyRelease(2) })
+                        .position(x: norns.customLayout.k2.x * size.width,
+                                 y: norns.customLayout.k2.y * size.height)
+
+                    ButtonView(size: CustomLayout.baseButton * s,
+                              onPress: { norns.keyPress(3) },
+                              onRelease: { norns.keyRelease(3) })
+                        .position(x: norns.customLayout.k3.x * size.width,
+                                 y: norns.customLayout.k3.y * size.height)
                 }
             }
             .frame(width: size.width, height: size.height)
