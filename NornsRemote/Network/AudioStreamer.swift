@@ -8,11 +8,11 @@ import Network
 /// 1. Sends Lua commands via Maiden to start `sox` capturing JACK output,
 ///    piped through `nc` (netcat) on a TCP port.
 /// 2. Connects from Mac to receive raw PCM (48kHz, 16-bit signed LE, stereo).
-/// 3. Plays through AVAudioEngine.
+/// 3. Buffers ~200ms then plays through AVAudioEngine in large chunks.
 @Observable
 final class AudioStreamer {
     var isStreaming = false
-    var level: Float = 0  // current peak level for UI metering
+    var level: Float = 0
 
     private let streamPort: UInt16 = 12346
     private var connection: NWConnection?
@@ -20,20 +20,23 @@ final class AudioStreamer {
     private var playerNode: AVAudioPlayerNode?
     private let outputFormat: AVAudioFormat
 
+    // Accumulator: collect data into ~100ms chunks before scheduling
+    private let audioQueue = DispatchQueue(label: "audio-streamer", qos: .userInteractive)
+    private var accumulator = Data()
+    // 48000 samples/s * 2ch * 2bytes * 0.1s = 19200 bytes per 100ms chunk
+    private let chunkSize = 19200
+    // Buffer 200ms before starting playback to avoid underruns
+    private let prebufferSize = 19200 * 2
+    private var prebuffered = false
+
     init() {
-        // Standard format for playback: 48kHz stereo float32 non-interleaved
         outputFormat = AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 2)!
     }
 
-    /// Start streaming audio from the norns.
-    /// - Parameters:
-    ///   - host: norns hostname/IP
-    ///   - maiden: MaidenWebSocket to send Lua commands
     func start(host: String, maiden: MaidenWebSocket) {
         guard !isStreaming else { return }
 
         // 1. Tell norns to start audio capture → TCP stream
-        //    sox captures JACK output, pipes raw PCM to netcat listener
         let port = streamPort
         maiden.sendLua("""
         os.execute("pkill -f NornsRemoteCapture 2>/dev/null; sleep 0.2")
@@ -49,7 +52,6 @@ final class AudioStreamer {
 
         do {
             try eng.start()
-            player.play()
         } catch {
             print("[Audio] Engine start error: \(error)")
             return
@@ -58,18 +60,19 @@ final class AudioStreamer {
         engine = eng
         playerNode = player
         isStreaming = true
+        prebuffered = false
+        accumulator = Data()
 
-        // 3. Connect TCP to norns after a delay (let sox/nc start)
-        DispatchQueue.global().asyncAfter(deadline: .now() + 1.5) { [weak self] in
+        // 3. Connect TCP after a delay (let sox/nc start on norns)
+        DispatchQueue.global().asyncAfter(deadline: .now() + 2.0) { [weak self] in
             self?.connectTCP(host: host)
         }
     }
 
-    /// Stop streaming and clean up norns-side processes.
     func stop(maiden: MaidenWebSocket) {
         isStreaming = false
+        prebuffered = false
 
-        // Stop Mac-side playback
         playerNode?.stop()
         engine?.stop()
         connection?.cancel()
@@ -77,12 +80,12 @@ final class AudioStreamer {
         playerNode = nil
         engine = nil
         connection = nil
+        accumulator = Data()
 
-        // Kill norns-side processes
         maiden.sendLua("os.execute(\"pkill -f NornsRemoteCapture 2>/dev/null\")")
     }
 
-    // MARK: - TCP Connection
+    // MARK: - TCP
 
     private func connectTCP(host: String) {
         let nwHost = NWEndpoint.Host(host)
@@ -95,7 +98,7 @@ final class AudioStreamer {
                 print("[Audio] TCP connected to \(host):\(self?.streamPort ?? 0)")
                 self?.receiveLoop()
             case .failed(let error):
-                print("[Audio] TCP connection failed: \(error)")
+                print("[Audio] TCP failed: \(error)")
                 DispatchQueue.main.async { self?.isStreaming = false }
             case .cancelled:
                 break
@@ -104,19 +107,21 @@ final class AudioStreamer {
             }
         }
 
-        conn.start(queue: .global(qos: .userInteractive))
+        conn.start(queue: audioQueue)
         connection = conn
     }
 
     private func receiveLoop() {
         guard let conn = connection, isStreaming else { return }
 
-        // Read ~10ms of audio at a time (48000 * 2ch * 2bytes * 0.01s = 1920 bytes)
-        conn.receive(minimumIncompleteLength: 1920, maximumLength: 19200) { [weak self] data, _, isComplete, error in
+        // Request large chunks to reduce scheduling overhead
+        conn.receive(minimumIncompleteLength: 4096, maximumLength: 65536) { [weak self] data, _, isComplete, error in
             guard let self = self else { return }
 
             if let data = data, !data.isEmpty {
-                self.playPCMData(data)
+                self.audioQueue.async {
+                    self.accumulateAndPlay(data)
+                }
             }
 
             if isComplete || error != nil {
@@ -128,20 +133,40 @@ final class AudioStreamer {
         }
     }
 
-    // MARK: - PCM Playback
+    // MARK: - Buffered Playback
 
-    private func playPCMData(_ data: Data) {
+    private func accumulateAndPlay(_ data: Data) {
+        accumulator.append(data)
+
+        // Prebuffer phase: wait until we have enough data
+        if !prebuffered {
+            if accumulator.count >= prebufferSize {
+                prebuffered = true
+                playerNode?.play()
+                print("[Audio] Prebuffer complete, starting playback (\(accumulator.count) bytes)")
+            } else {
+                return
+            }
+        }
+
+        // Schedule chunks when we have enough
+        while accumulator.count >= chunkSize {
+            let chunk = accumulator.prefix(chunkSize)
+            accumulator.removeFirst(chunkSize)
+            scheduleChunk(Data(chunk))
+        }
+    }
+
+    private func scheduleChunk(_ data: Data) {
         guard let playerNode = playerNode else { return }
 
-        // Input: interleaved Int16 stereo (4 bytes per frame)
-        let frameCount = UInt32(data.count / 4)
+        let frameCount = UInt32(data.count / 4)  // 4 bytes per frame (2ch * 16bit)
         guard frameCount > 0,
               let buffer = AVAudioPCMBuffer(pcmFormat: outputFormat, frameCapacity: frameCount)
         else { return }
 
         buffer.frameLength = frameCount
 
-        // De-interleave Int16 → Float32
         data.withUnsafeBytes { raw in
             let samples = raw.bindMemory(to: Int16.self)
             guard let left = buffer.floatChannelData?[0],
