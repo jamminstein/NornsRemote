@@ -301,8 +301,7 @@ struct NornsView: View {
         case .gradient:
             AnimatedGradientView()
         case .glass:
-            Color.clear
-                .contentShape(Rectangle())
+            GlassBackground()
         case .punk:
             PunkDitherBackground()
         }
@@ -780,6 +779,21 @@ struct VisualEffectBackground: NSViewRepresentable {
         view.material = .hudWindow
         view.blendingMode = .behindWindow
         view.state = .active
+        return view
+    }
+
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {}
+}
+
+// MARK: - Glass Background (frosted desktop blur)
+
+struct GlassBackground: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = .fullScreenUI        // lighter frosted glass
+        view.blendingMode = .behindWindow    // blurs whatever is behind the window
+        view.state = .active                 // always active, even when unfocused
+        view.isEmphasized = true
         return view
     }
 

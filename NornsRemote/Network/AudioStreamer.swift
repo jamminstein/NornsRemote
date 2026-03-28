@@ -39,51 +39,23 @@ final class AudioStreamer {
         let port = streamPort
 
         // 1. Kill any previous stream processes
-        maiden.sendLua("os.execute('pkill -f NornsRemoteAudio 2>/dev/null; pkill -f norns_audio_stream 2>/dev/null')")
+        maiden.sendLua("os.execute('pkill -f NornsRemoteAudio 2>/dev/null')")
 
-        // 2. Write a helper script that tries multiple capture methods
-        //    This avoids complex quoting in os.execute and gives us a reliable pipeline
+        // 2. Start ffmpeg → nc pipeline (simple individual commands)
         DispatchQueue.global().asyncAfter(deadline: .now() + 0.5) {
-            let script = """
-            os.execute([[
-            cat > /tmp/norns_audio_stream.sh << 'SCRIPT'
-            #!/bin/bash
-            PORT=\(port)
+            // Start ffmpeg piped to nc in background — single simple command
+            maiden.sendLua("os.execute('nohup bash -c \"ffmpeg -f jack -i NornsRemoteAudio -f s16le -ar 48000 -ac 2 pipe:1 2>/dev/null | nc -l -p \(port)\" &')")
+            print("[Audio] Sent ffmpeg+nc start command")
+        }
 
-            # Method 1: ffmpeg with JACK
-            if ffmpeg -formats 2>/dev/null | grep -q jack; then
-                echo "Using ffmpeg+JACK" >> /tmp/norns_audio_stream.log
-                ffmpeg -f jack -i NornsRemoteAudio -f s16le -ar 48000 -ac 2 pipe:1 2>/dev/null | nc -l -p $PORT &
-                PID=$!
-                sleep 1.5
-                jack_connect crone:output_1 NornsRemoteAudio:input_1 2>/dev/null
-                jack_connect crone:output_2 NornsRemoteAudio:input_2 2>/dev/null
-                wait $PID
-                exit 0
-            fi
-
-            # Method 2: jack_capture (lightweight JACK recorder)
-            if which jack_capture >/dev/null 2>&1; then
-                echo "Using jack_capture" >> /tmp/norns_audio_stream.log
-                jack_capture --port crone:output_1 --port crone:output_2 -b 16 -f 16 --channels 2 --write-to-stdout --silent 2>/dev/null | nc -l -p $PORT
-                exit 0
-            fi
-
-            # Method 3: arecord with JACK ALSA plugin
-            if arecord -L 2>/dev/null | grep -q jack; then
-                echo "Using arecord+JACK" >> /tmp/norns_audio_stream.log
-                arecord -D jack -f S16_LE -r 48000 -c 2 2>/dev/null | nc -l -p $PORT
-                exit 0
-            fi
-
-            echo "No capture method available" >> /tmp/norns_audio_stream.log
-            SCRIPT
-            chmod +x /tmp/norns_audio_stream.sh
-            nohup /tmp/norns_audio_stream.sh > /dev/null 2>&1 &
-            ]])
-            """
-            maiden.sendLua(script)
-            print("[Audio] Sent capture script to norns")
+        // 3. Connect JACK ports after ffmpeg registers
+        DispatchQueue.global().asyncAfter(deadline: .now() + 2.5) {
+            maiden.sendLua("os.execute('jack_connect crone:output_1 NornsRemoteAudio:input_1 2>/dev/null')")
+            print("[Audio] Sent jack_connect output_1")
+        }
+        DispatchQueue.global().asyncAfter(deadline: .now() + 2.8) {
+            maiden.sendLua("os.execute('jack_connect crone:output_2 NornsRemoteAudio:input_2 2>/dev/null')")
+            print("[Audio] Sent jack_connect output_2")
         }
 
         // 3. Setup AVAudioEngine on Mac side
@@ -128,11 +100,6 @@ final class AudioStreamer {
         accumulator = Data()
 
         maiden.sendLua("os.execute('pkill -f norns_audio_stream 2>/dev/null; pkill -f NornsRemoteAudio 2>/dev/null')")
-    }
-
-    /// Check what capture method the norns picked (reads the log)
-    func checkStatus(maiden: MaidenWebSocket) {
-        maiden.sendLua("print(util.os_capture('cat /tmp/norns_audio_stream.log 2>/dev/null'))")
     }
 
     // MARK: - TCP
