@@ -514,41 +514,76 @@ private struct DragHandle: View {
     let handleWidth: CGFloat
     let handleHeight: CGFloat
     let label: String
-    @State private var dragOffset: CGSize = .zero
 
     var body: some View {
         ZStack {
-            // Filled background — MUST be opaque enough for hit testing
+            // NSView-based drag handler — blocks window drag, handles mouse directly
+            DragHandlerNSViewRep(
+                onDrag: { dx, dy in
+                    layout.x += dx / containerSize.width
+                    layout.y += dy / containerSize.height
+                    layout.x = max(0.05, min(0.95, layout.x))
+                    layout.y = max(0.05, min(0.95, layout.y))
+                }
+            )
+            // Visual overlay
             RoundedRectangle(cornerRadius: 4)
                 .fill(Color.cyan.opacity(0.12))
-            // Border
+                .allowsHitTesting(false)
             RoundedRectangle(cornerRadius: 4)
                 .stroke(Color.cyan.opacity(0.8), lineWidth: 2)
-            // Label above
+                .allowsHitTesting(false)
             Text(label)
                 .font(.system(size: 10, weight: .bold, design: .monospaced))
                 .foregroundColor(.cyan)
                 .offset(y: -(handleHeight / 2 + 14))
+                .allowsHitTesting(false)
         }
         .frame(width: handleWidth + 16, height: handleHeight + 16)
-        .contentShape(Rectangle())
-        .gesture(
-            DragGesture(coordinateSpace: .global)
-                .onChanged { value in
-                    dragOffset = value.translation
-                }
-                .onEnded { value in
-                    layout.x += value.translation.width / containerSize.width
-                    layout.y += value.translation.height / containerSize.height
-                    layout.x = max(0.05, min(0.95, layout.x))
-                    layout.y = max(0.05, min(0.95, layout.y))
-                    dragOffset = .zero
-                }
-        )
         .position(
-            x: layout.x * containerSize.width + dragOffset.width,
-            y: layout.y * containerSize.height + dragOffset.height
+            x: layout.x * containerSize.width,
+            y: layout.y * containerSize.height
         )
+    }
+}
+
+// MARK: - AppKit Drag Handler (bypasses window.isMovableByWindowBackground)
+
+struct DragHandlerNSViewRep: NSViewRepresentable {
+    let onDrag: (CGFloat, CGFloat) -> Void
+
+    func makeNSView(context: Context) -> DragHandlerNSView {
+        let view = DragHandlerNSView()
+        view.onDrag = onDrag
+        return view
+    }
+
+    func updateNSView(_ nsView: DragHandlerNSView, context: Context) {
+        nsView.onDrag = onDrag
+    }
+}
+
+class DragHandlerNSView: NSView {
+    var onDrag: ((CGFloat, CGFloat) -> Void)?
+    private var lastPoint: NSPoint?
+
+    override var mouseDownCanMoveWindow: Bool { false }
+
+    override func mouseDown(with event: NSEvent) {
+        lastPoint = event.locationInWindow
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard let last = lastPoint else { return }
+        let current = event.locationInWindow
+        let dx = current.x - last.x
+        let dy = -(current.y - last.y) // flip Y: AppKit Y-up → SwiftUI Y-down
+        onDrag?(dx, dy)
+        lastPoint = current
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        lastPoint = nil
     }
 }
 
