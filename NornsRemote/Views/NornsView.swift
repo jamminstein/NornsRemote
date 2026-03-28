@@ -158,47 +158,53 @@ struct NornsView: View {
                     .contextMenu { contextMenuItems }
 
                 if norns.isEditingLayout {
-                    // EDIT MODE: static placeholders + draggable handles
+                    // EDIT MODE: static placeholders + draggable/resizable handles
                     // No real ButtonView/EncoderView — their NSViews steal mouse events
 
-                    // Static placeholder circles for knobs/buttons
                     Circle()
                         .fill(Color(white: 0.25))
-                        .frame(width: CustomLayout.baseButtonK1 * s, height: CustomLayout.baseButtonK1 * s)
+                        .frame(width: CustomLayout.baseButtonK1 * s * norns.customLayout.k1.scale,
+                               height: CustomLayout.baseButtonK1 * s * norns.customLayout.k1.scale)
                         .position(x: norns.customLayout.k1.x * size.width,
                                  y: norns.customLayout.k1.y * size.height)
                     Circle()
                         .fill(Color(white: 0.25))
-                        .frame(width: CustomLayout.baseEncoder * s, height: CustomLayout.baseEncoder * s)
+                        .frame(width: CustomLayout.baseEncoder * s * norns.customLayout.e1.scale,
+                               height: CustomLayout.baseEncoder * s * norns.customLayout.e1.scale)
                         .position(x: norns.customLayout.e1.x * size.width,
                                  y: norns.customLayout.e1.y * size.height)
                     RoundedRectangle(cornerRadius: 4)
                         .fill(.black)
-                        .frame(width: CustomLayout.baseScreenW * s, height: CustomLayout.baseScreenH * s)
+                        .frame(width: CustomLayout.baseScreenW * s * norns.customLayout.screen.scale,
+                               height: CustomLayout.baseScreenH * s * norns.customLayout.screen.scale)
                         .position(x: norns.customLayout.screen.x * size.width,
                                  y: norns.customLayout.screen.y * size.height)
                     Circle()
                         .fill(Color(white: 0.25))
-                        .frame(width: CustomLayout.baseEncoder * s, height: CustomLayout.baseEncoder * s)
+                        .frame(width: CustomLayout.baseEncoder * s * norns.customLayout.e2.scale,
+                               height: CustomLayout.baseEncoder * s * norns.customLayout.e2.scale)
                         .position(x: norns.customLayout.e2.x * size.width,
                                  y: norns.customLayout.e2.y * size.height)
                     Circle()
                         .fill(Color(white: 0.25))
-                        .frame(width: CustomLayout.baseEncoder * s, height: CustomLayout.baseEncoder * s)
+                        .frame(width: CustomLayout.baseEncoder * s * norns.customLayout.e3.scale,
+                               height: CustomLayout.baseEncoder * s * norns.customLayout.e3.scale)
                         .position(x: norns.customLayout.e3.x * size.width,
                                  y: norns.customLayout.e3.y * size.height)
                     Circle()
                         .fill(Color(white: 0.25))
-                        .frame(width: CustomLayout.baseButton * s, height: CustomLayout.baseButton * s)
+                        .frame(width: CustomLayout.baseButton * s * norns.customLayout.k2.scale,
+                               height: CustomLayout.baseButton * s * norns.customLayout.k2.scale)
                         .position(x: norns.customLayout.k2.x * size.width,
                                  y: norns.customLayout.k2.y * size.height)
                     Circle()
                         .fill(Color(white: 0.25))
-                        .frame(width: CustomLayout.baseButton * s, height: CustomLayout.baseButton * s)
+                        .frame(width: CustomLayout.baseButton * s * norns.customLayout.k3.scale,
+                               height: CustomLayout.baseButton * s * norns.customLayout.k3.scale)
                         .position(x: norns.customLayout.k3.x * size.width,
                                  y: norns.customLayout.k3.y * size.height)
 
-                    // Drag handles on top
+                    // Drag + scroll-to-resize handles
                     DragHandle(layout: $norns.customLayout.k1, containerSize: size,
                               handleWidth: CustomLayout.baseButtonK1 * s,
                               handleHeight: CustomLayout.baseButtonK1 * s, label: "K1")
@@ -221,7 +227,7 @@ struct NornsView: View {
                               handleWidth: CustomLayout.baseButton * s,
                               handleHeight: CustomLayout.baseButton * s, label: "K3")
 
-                    Text("EDIT MODE — Drag to reposition")
+                    Text("EDIT MODE — Drag to move, scroll to resize")
                         .font(.system(size: 11, weight: .medium, design: .monospaced))
                         .foregroundColor(.white.opacity(0.7))
                         .padding(.horizontal, 8)
@@ -231,14 +237,14 @@ struct NornsView: View {
                         .position(x: size.width / 2, y: 20)
 
                 } else {
-                    // PLAY MODE: real interactive components
-                    ButtonView(size: CustomLayout.baseButtonK1 * s,
+                    // PLAY MODE: real interactive components with custom scale
+                    ButtonView(size: CustomLayout.baseButtonK1 * s * norns.customLayout.k1.scale,
                               onPress: { norns.keyPress(1) },
                               onRelease: { norns.keyRelease(1) })
                         .position(x: norns.customLayout.k1.x * size.width,
                                  y: norns.customLayout.k1.y * size.height)
 
-                    EncoderView(size: CustomLayout.baseEncoder * s) { delta in
+                    EncoderView(size: CustomLayout.baseEncoder * s * norns.customLayout.e1.scale) { delta in
                         norns.encoderTurn(1, delta: delta)
                     }
                     .position(x: norns.customLayout.e1.x * size.width,
@@ -246,32 +252,32 @@ struct NornsView: View {
 
                     ScreenView(
                         image: norns.screenImage,
-                        width: CustomLayout.baseScreenW * s,
-                        height: CustomLayout.baseScreenH * s,
+                        width: CustomLayout.baseScreenW * s * norns.customLayout.screen.scale,
+                        height: CustomLayout.baseScreenH * s * norns.customLayout.screen.scale,
                         connectionHealth: norns.connectionHealth
                     )
                     .position(x: norns.customLayout.screen.x * size.width,
                              y: norns.customLayout.screen.y * size.height)
 
-                    EncoderView(size: CustomLayout.baseEncoder * s) { delta in
+                    EncoderView(size: CustomLayout.baseEncoder * s * norns.customLayout.e2.scale) { delta in
                         norns.encoderTurn(2, delta: delta)
                     }
                     .position(x: norns.customLayout.e2.x * size.width,
                              y: norns.customLayout.e2.y * size.height)
 
-                    EncoderView(size: CustomLayout.baseEncoder * s) { delta in
+                    EncoderView(size: CustomLayout.baseEncoder * s * norns.customLayout.e3.scale) { delta in
                         norns.encoderTurn(3, delta: delta)
                     }
                     .position(x: norns.customLayout.e3.x * size.width,
                              y: norns.customLayout.e3.y * size.height)
 
-                    ButtonView(size: CustomLayout.baseButton * s,
+                    ButtonView(size: CustomLayout.baseButton * s * norns.customLayout.k2.scale,
                               onPress: { norns.keyPress(2) },
                               onRelease: { norns.keyRelease(2) })
                         .position(x: norns.customLayout.k2.x * size.width,
                                  y: norns.customLayout.k2.y * size.height)
 
-                    ButtonView(size: CustomLayout.baseButton * s,
+                    ButtonView(size: CustomLayout.baseButton * s * norns.customLayout.k3.scale,
                               onPress: { norns.keyPress(3) },
                               onRelease: { norns.keyRelease(3) })
                         .position(x: norns.customLayout.k3.x * size.width,
@@ -514,35 +520,51 @@ private struct DragHandle: View {
     let handleWidth: CGFloat
     let handleHeight: CGFloat
     let label: String
+    @State private var dragOffset: CGSize = .zero
+
+    private var scaledW: CGFloat { handleWidth * layout.scale }
+    private var scaledH: CGFloat { handleHeight * layout.scale }
 
     var body: some View {
         ZStack {
             // NSView-based drag handler — blocks window drag, handles mouse directly
             DragHandlerNSViewRep(
-                onDrag: { dx, dy in
-                    layout.x += dx / containerSize.width
-                    layout.y += dy / containerSize.height
+                onDragDelta: { dx, dy in
+                    dragOffset.width += dx
+                    dragOffset.height += dy
+                },
+                onDragEnd: {
+                    layout.x += dragOffset.width / containerSize.width
+                    layout.y += dragOffset.height / containerSize.height
                     layout.x = max(0.05, min(0.95, layout.x))
                     layout.y = max(0.05, min(0.95, layout.y))
+                    dragOffset = .zero
+                },
+                onScroll: { delta in
+                    layout.scale = max(0.3, min(3.0, layout.scale + delta))
                 }
             )
-            // Visual overlay
+            // Visual overlay (hit testing disabled — NSView handles it)
             RoundedRectangle(cornerRadius: 4)
                 .fill(Color.cyan.opacity(0.12))
                 .allowsHitTesting(false)
             RoundedRectangle(cornerRadius: 4)
                 .stroke(Color.cyan.opacity(0.8), lineWidth: 2)
                 .allowsHitTesting(false)
-            Text(label)
-                .font(.system(size: 10, weight: .bold, design: .monospaced))
-                .foregroundColor(.cyan)
-                .offset(y: -(handleHeight / 2 + 14))
-                .allowsHitTesting(false)
+            VStack(spacing: 2) {
+                Text(label)
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .foregroundColor(.cyan)
+                Text(String(format: "%.0f%%", layout.scale * 100))
+                    .font(.system(size: 8, design: .monospaced))
+                    .foregroundColor(.cyan.opacity(0.6))
+            }
+            .allowsHitTesting(false)
         }
-        .frame(width: handleWidth + 16, height: handleHeight + 16)
+        .frame(width: scaledW + 16, height: scaledH + 16)
         .position(
-            x: layout.x * containerSize.width,
-            y: layout.y * containerSize.height
+            x: layout.x * containerSize.width + dragOffset.width,
+            y: layout.y * containerSize.height + dragOffset.height
         )
     }
 }
@@ -550,40 +572,61 @@ private struct DragHandle: View {
 // MARK: - AppKit Drag Handler (bypasses window.isMovableByWindowBackground)
 
 struct DragHandlerNSViewRep: NSViewRepresentable {
-    let onDrag: (CGFloat, CGFloat) -> Void
+    let onDragDelta: (CGFloat, CGFloat) -> Void
+    let onDragEnd: () -> Void
+    let onScroll: (CGFloat) -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
 
     func makeNSView(context: Context) -> DragHandlerNSView {
         let view = DragHandlerNSView()
-        view.onDrag = onDrag
+        view.coordinator = context.coordinator
+        context.coordinator.onDragDelta = onDragDelta
+        context.coordinator.onDragEnd = onDragEnd
+        context.coordinator.onScroll = onScroll
         return view
     }
 
     func updateNSView(_ nsView: DragHandlerNSView, context: Context) {
-        nsView.onDrag = onDrag
+        context.coordinator.onDragDelta = onDragDelta
+        context.coordinator.onDragEnd = onDragEnd
+        context.coordinator.onScroll = onScroll
+    }
+
+    class Coordinator {
+        var onDragDelta: ((CGFloat, CGFloat) -> Void)?
+        var onDragEnd: (() -> Void)?
+        var onScroll: ((CGFloat) -> Void)?
     }
 }
 
 class DragHandlerNSView: NSView {
-    var onDrag: ((CGFloat, CGFloat) -> Void)?
-    private var lastPoint: NSPoint?
+    var coordinator: DragHandlerNSViewRep.Coordinator?
 
     override var mouseDownCanMoveWindow: Bool { false }
+    override var acceptsFirstResponder: Bool { true }
 
     override func mouseDown(with event: NSEvent) {
-        lastPoint = event.locationInWindow
+        // Capture — don't pass to super (which would move window)
     }
 
     override func mouseDragged(with event: NSEvent) {
-        guard let last = lastPoint else { return }
-        let current = event.locationInWindow
-        let dx = current.x - last.x
-        let dy = -(current.y - last.y) // flip Y: AppKit Y-up → SwiftUI Y-down
-        onDrag?(dx, dy)
-        lastPoint = current
+        let dx = event.deltaX
+        let dy = event.deltaY
+        coordinator?.onDragDelta?(dx, dy)
     }
 
     override func mouseUp(with event: NSEvent) {
-        lastPoint = nil
+        coordinator?.onDragEnd?()
+    }
+
+    override func scrollWheel(with event: NSEvent) {
+        let delta = event.scrollingDeltaY
+        if abs(delta) > 0.1 {
+            coordinator?.onScroll?(delta > 0 ? 0.05 : -0.05)
+        }
     }
 }
 
