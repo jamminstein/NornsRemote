@@ -4,14 +4,43 @@ struct NornsView: View {
     @Environment(NornsConnection.self) private var norns
 
     var body: some View {
-        Group {
-            switch norns.viewMode {
-            case .full: fullView
-            case .mini: miniView
-            case .custom: customView
+        ZStack(alignment: .trailing) {
+            Group {
+                switch norns.viewMode {
+                case .full: fullView
+                case .mini: miniView
+                case .custom: customView
+                }
+            }
+            .ignoresSafeArea()
+
+            // Parameters sidebar
+            if norns.showParams {
+                ParamsSidebar()
+                    .environment(norns)
+                    .transition(.move(edge: .trailing))
+            }
+
+            // Recording indicator
+            if norns.isRecording {
+                VStack {
+                    HStack {
+                        Circle()
+                            .fill(.red)
+                            .frame(width: 8, height: 8)
+                        Text("REC")
+                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                            .foregroundColor(.red)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.black.opacity(0.6))
+                    .cornerRadius(4)
+                    Spacer()
+                }
+                .padding(.top, 8)
             }
         }
-        .ignoresSafeArea()
         .onAppear {
             norns.connect()
             norns.fetchScripts()
@@ -120,60 +149,102 @@ struct NornsView: View {
 
     private var customView: some View {
         GeometryReader { geo in
-            let bw: CGFloat = 700
-            let bh: CGFloat = 452
-            let scale = min(geo.size.width / (bw + 16), geo.size.height / (bh + 16))
-            let w: CGFloat = bw * scale
-            let h: CGFloat = bh * scale
+            @Bindable var norns = norns
+            let size = geo.size
+            let s = min(size.width / 700, size.height / 452)
 
             ZStack {
                 customBackground
                     .contextMenu { contextMenuItems }
 
-                ZStack(alignment: .topLeading) {
-                    Color.clear.frame(width: w, height: h)
+                // Components — disabled during edit so drag handles work
+                ButtonView(size: CustomLayout.baseButtonK1 * s,
+                          onPress: { norns.keyPress(1) },
+                          onRelease: { norns.keyRelease(1) })
+                    .position(x: norns.customLayout.k1.x * size.width,
+                             y: norns.customLayout.k1.y * size.height)
+                    .allowsHitTesting(!norns.isEditingLayout)
 
-                    ButtonView(size: 47 * scale,
-                              onPress: { norns.keyPress(1) },
-                              onRelease: { norns.keyRelease(1) })
-                        .position(x: 102 * scale, y: 170 * scale)
-
-                    EncoderView(size: 65 * scale) { delta in
-                        norns.encoderTurn(1, delta: delta)
-                    }
-                    .position(x: 202 * scale, y: 156 * scale)
-
-                    ScreenView(
-                        image: norns.screenImage,
-                        width: 320 * scale,
-                        height: 160 * scale,
-                        connectionHealth: norns.connectionHealth
-                    )
-                    .position(x: 220 * scale, y: 318 * scale)
-
-                    EncoderView(size: 65 * scale) { delta in
-                        norns.encoderTurn(2, delta: delta)
-                    }
-                    .position(x: 463 * scale, y: 262 * scale)
-
-                    EncoderView(size: 65 * scale) { delta in
-                        norns.encoderTurn(3, delta: delta)
-                    }
-                    .position(x: 587 * scale, y: 262 * scale)
-
-                    ButtonView(size: 43 * scale,
-                              onPress: { norns.keyPress(2) },
-                              onRelease: { norns.keyRelease(2) })
-                        .position(x: 463 * scale, y: 363 * scale)
-
-                    ButtonView(size: 43 * scale,
-                              onPress: { norns.keyPress(3) },
-                              onRelease: { norns.keyRelease(3) })
-                        .position(x: 573 * scale, y: 363 * scale)
+                EncoderView(size: CustomLayout.baseEncoder * s) { delta in
+                    norns.encoderTurn(1, delta: delta)
                 }
-                .frame(width: w, height: h)
+                .position(x: norns.customLayout.e1.x * size.width,
+                         y: norns.customLayout.e1.y * size.height)
+                .allowsHitTesting(!norns.isEditingLayout)
+
+                ScreenView(
+                    image: norns.screenImage,
+                    width: CustomLayout.baseScreenW * s,
+                    height: CustomLayout.baseScreenH * s,
+                    connectionHealth: norns.connectionHealth
+                )
+                .position(x: norns.customLayout.screen.x * size.width,
+                         y: norns.customLayout.screen.y * size.height)
+                .allowsHitTesting(!norns.isEditingLayout)
+
+                EncoderView(size: CustomLayout.baseEncoder * s) { delta in
+                    norns.encoderTurn(2, delta: delta)
+                }
+                .position(x: norns.customLayout.e2.x * size.width,
+                         y: norns.customLayout.e2.y * size.height)
+                .allowsHitTesting(!norns.isEditingLayout)
+
+                EncoderView(size: CustomLayout.baseEncoder * s) { delta in
+                    norns.encoderTurn(3, delta: delta)
+                }
+                .position(x: norns.customLayout.e3.x * size.width,
+                         y: norns.customLayout.e3.y * size.height)
+                .allowsHitTesting(!norns.isEditingLayout)
+
+                ButtonView(size: CustomLayout.baseButton * s,
+                          onPress: { norns.keyPress(2) },
+                          onRelease: { norns.keyRelease(2) })
+                    .position(x: norns.customLayout.k2.x * size.width,
+                             y: norns.customLayout.k2.y * size.height)
+                    .allowsHitTesting(!norns.isEditingLayout)
+
+                ButtonView(size: CustomLayout.baseButton * s,
+                          onPress: { norns.keyPress(3) },
+                          onRelease: { norns.keyRelease(3) })
+                    .position(x: norns.customLayout.k3.x * size.width,
+                             y: norns.customLayout.k3.y * size.height)
+                    .allowsHitTesting(!norns.isEditingLayout)
+
+                // Edit overlay handles
+                if norns.isEditingLayout {
+                    DragHandle(layout: $norns.customLayout.k1, containerSize: size,
+                              handleWidth: CustomLayout.baseButtonK1 * s,
+                              handleHeight: CustomLayout.baseButtonK1 * s, label: "K1")
+                    DragHandle(layout: $norns.customLayout.e1, containerSize: size,
+                              handleWidth: CustomLayout.baseEncoder * s,
+                              handleHeight: CustomLayout.baseEncoder * s, label: "E1")
+                    DragHandle(layout: $norns.customLayout.screen, containerSize: size,
+                              handleWidth: CustomLayout.baseScreenW * s,
+                              handleHeight: CustomLayout.baseScreenH * s, label: "Screen")
+                    DragHandle(layout: $norns.customLayout.e2, containerSize: size,
+                              handleWidth: CustomLayout.baseEncoder * s,
+                              handleHeight: CustomLayout.baseEncoder * s, label: "E2")
+                    DragHandle(layout: $norns.customLayout.e3, containerSize: size,
+                              handleWidth: CustomLayout.baseEncoder * s,
+                              handleHeight: CustomLayout.baseEncoder * s, label: "E3")
+                    DragHandle(layout: $norns.customLayout.k2, containerSize: size,
+                              handleWidth: CustomLayout.baseButton * s,
+                              handleHeight: CustomLayout.baseButton * s, label: "K2")
+                    DragHandle(layout: $norns.customLayout.k3, containerSize: size,
+                              handleWidth: CustomLayout.baseButton * s,
+                              handleHeight: CustomLayout.baseButton * s, label: "K3")
+
+                    Text("EDIT MODE — Drag to reposition")
+                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                        .foregroundColor(.white.opacity(0.7))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.black.opacity(0.5))
+                        .cornerRadius(4)
+                        .position(x: size.width / 2, y: 20)
+                }
             }
-            .frame(width: geo.size.width, height: geo.size.height)
+            .frame(width: size.width, height: size.height)
         }
         .ignoresSafeArea()
     }
@@ -246,6 +317,23 @@ struct NornsView: View {
 
         Divider()
 
+        // Capture
+        Button("Save Screenshot...") { norns.saveScreenshot() }
+        Button("Copy Screenshot") { norns.copyScreenshot() }
+        Button(norns.isRecording ? "Stop Recording & Save..." : "Record GIF") {
+            norns.toggleRecording()
+        }
+
+        Divider()
+
+        // Params
+        Button(norns.showParams ? "Hide Parameters" : "Show Parameters") {
+            norns.showParams.toggle()
+            if norns.showParams { norns.fetchScriptParams() }
+        }
+
+        Divider()
+
         Menu("Load Script") {
             ForEach(norns.scripts, id: \.self) { script in
                 Button(script) {
@@ -284,6 +372,143 @@ struct NornsView: View {
             window.contentMinSize = NSSize(width: 300, height: 200)
             window.minSize = NSSize(width: 300, height: 200)
         }
+    }
+}
+
+// MARK: - Parameters Sidebar
+
+struct ParamsSidebar: View {
+    @Environment(NornsConnection.self) private var norns
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text("PARAMS")
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.7))
+                Spacer()
+                Button(action: { norns.fetchScriptParams() }) {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 10))
+                        .foregroundColor(.white.opacity(0.5))
+                }
+                .buttonStyle(.plain)
+                Button(action: { norns.showParams = false }) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10))
+                        .foregroundColor(.white.opacity(0.5))
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+
+            Divider().overlay(Color.white.opacity(0.1))
+
+            if norns.scriptParams.isEmpty {
+                Text("No params loaded.\nLoad a script first.")
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.4))
+                    .padding(10)
+                Spacer()
+            } else {
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 2) {
+                        ForEach(norns.scriptParams) { param in
+                            ParamRow(param: param) { delta in
+                                norns.setParam(id: param.id, delta: delta)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 4)
+                }
+            }
+        }
+        .frame(width: 200)
+        .background(Color.black.opacity(0.85))
+    }
+}
+
+struct ParamRow: View {
+    let param: NornsConnection.ScriptParam
+    let onDelta: (Int) -> Void
+
+    var body: some View {
+        HStack(spacing: 4) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(param.name)
+                    .font(.system(size: 9, weight: .medium, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.8))
+                    .lineLimit(1)
+                Text(param.value)
+                    .font(.system(size: 9, design: .monospaced))
+                    .foregroundColor(.cyan.opacity(0.7))
+                    .lineLimit(1)
+            }
+            Spacer()
+            Button(action: { onDelta(-1) }) {
+                Image(systemName: "minus")
+                    .font(.system(size: 8))
+                    .foregroundColor(.white.opacity(0.5))
+                    .frame(width: 16, height: 16)
+            }
+            .buttonStyle(.plain)
+            Button(action: { onDelta(1) }) {
+                Image(systemName: "plus")
+                    .font(.system(size: 8))
+                    .foregroundColor(.white.opacity(0.5))
+                    .frame(width: 16, height: 16)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 4)
+        .padding(.vertical, 3)
+        .background(Color.white.opacity(0.03))
+        .cornerRadius(3)
+    }
+}
+
+// MARK: - Drag Handle (edit mode overlay)
+
+private struct DragHandle: View {
+    @Binding var layout: ComponentLayout
+    let containerSize: CGSize
+    let handleWidth: CGFloat
+    let handleHeight: CGFloat
+    let label: String
+    @State private var dragOffset: CGSize = .zero
+
+    var body: some View {
+        let pos = CGPoint(
+            x: layout.x * containerSize.width + dragOffset.width,
+            y: layout.y * containerSize.height + dragOffset.height
+        )
+
+        RoundedRectangle(cornerRadius: 4)
+            .stroke(Color.cyan.opacity(0.8), lineWidth: 2)
+            .background(Color.cyan.opacity(0.05))
+            .clipShape(RoundedRectangle(cornerRadius: 4))
+            .frame(width: handleWidth + 12, height: handleHeight + 12)
+            .overlay(
+                Text(label)
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .foregroundColor(.cyan)
+                    .offset(y: -(handleHeight / 2 + 14))
+            )
+            .contentShape(Rectangle())
+            .position(pos)
+            .gesture(
+                DragGesture()
+                    .onChanged { dragOffset = $0.translation }
+                    .onEnded { value in
+                        layout.x += value.translation.width / containerSize.width
+                        layout.y += value.translation.height / containerSize.height
+                        layout.x = max(0.05, min(0.95, layout.x))
+                        layout.y = max(0.05, min(0.95, layout.y))
+                        dragOffset = .zero
+                    }
+            )
     }
 }
 

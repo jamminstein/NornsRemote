@@ -35,6 +35,29 @@ struct MenuBarView: View {
     @Environment(NornsConnection.self) private var norns
 
     var body: some View {
+        // Device switcher
+        Menu("Device: \(norns.host)") {
+            ForEach(norns.devices) { device in
+                Button(device.host == norns.host ? "\(device.name) ✓" : device.name) {
+                    norns.switchDevice(device)
+                }
+            }
+            Divider()
+            Button("Add Device...") { promptAddDevice() }
+            if norns.devices.count > 1 {
+                Button("Remove Current...") {
+                    if let dev = norns.devices.first(where: { $0.host == norns.host }) {
+                        norns.removeDevice(dev)
+                        if let first = norns.devices.first {
+                            norns.switchDevice(first)
+                        }
+                    }
+                }
+            }
+        }
+
+        Divider()
+
         // Mode
         Button(norns.viewMode == .full ? "Full Mode ✓" : "Full Mode") {
             norns.viewMode = .full
@@ -56,10 +79,37 @@ struct MenuBarView: View {
                 norns.isEditingLayout.toggle()
                 if !norns.isEditingLayout { norns.saveCustomLayout() }
             }
+            Menu("Background") {
+                ForEach(NornsConnection.BackgroundStyle.allCases, id: \.self) { style in
+                    Button(norns.customBackground == style ? "\(style.rawValue.capitalized) ✓" : style.rawValue.capitalized) {
+                        norns.customBackground = style
+                    }
+                }
+            }
             Button("Reset Layout") {
                 norns.customLayout = CustomLayout()
                 norns.saveCustomLayout()
             }
+        }
+
+        Divider()
+
+        // Screenshot & Recording
+        Menu("Capture") {
+            Button("Save Screenshot...") { norns.saveScreenshot() }
+            Button("Copy Screenshot") { norns.copyScreenshot() }
+            Divider()
+            Button(norns.isRecording ? "Stop Recording & Save..." : "Start Recording GIF") {
+                norns.toggleRecording()
+            }
+        }
+
+        Divider()
+
+        // Script Parameters
+        Button(norns.showParams ? "Hide Parameters" : "Show Parameters") {
+            norns.showParams.toggle()
+            if norns.showParams { norns.fetchScriptParams() }
         }
 
         Divider()
@@ -73,8 +123,6 @@ struct MenuBarView: View {
             }
         }
 
-        Divider()
-
         // My Scripts (GitHub)
         Menu("My Scripts") {
             if norns.githubUsername.isEmpty {
@@ -82,7 +130,7 @@ struct MenuBarView: View {
                     promptGitHubUsername()
                 }
             } else {
-                Button("GitHub: \(norns.githubUsername)") {}.disabled(true)
+                Text("GitHub: \(norns.githubUsername)")
                 Button("Change Username...") {
                     promptGitHubUsername()
                 }
@@ -109,11 +157,40 @@ struct MenuBarView: View {
                 }
             }
         }
-        .onAppear {
-            norns.fetchInstalledProjects()
-            if !norns.githubUsername.isEmpty {
-                norns.fetchUserRepos()
+
+        // Community Scripts
+        Menu("Community Scripts") {
+            Button("Search...") { promptCommunitySearch() }
+            Button("Browse Popular") { norns.searchCommunityScripts() }
+            if !norns.communityScripts.isEmpty {
+                Divider()
+                ForEach(norns.communityScripts) { repo in
+                    if repo.isInstalled {
+                        Menu("\(repo.name) ✓") {
+                            Text(repo.description)
+                            Button("Load") { norns.loadScript(repo.name) }
+                            Button("Remove") { norns.removeScript(name: repo.name) }
+                        }
+                    } else {
+                        Menu(repo.name) {
+                            Text(repo.description)
+                            Button("Install") { norns.installScript(url: repo.url) }
+                        }
+                    }
+                }
             }
+        }
+
+        Divider()
+
+        // Audio Control
+        Menu("Audio") {
+            Button(norns.isMuted ? "Unmute ✓" : "Mute") {
+                norns.toggleMute()
+            }
+            Divider()
+            Button("Volume Up") { norns.volumeUp() }
+            Button("Volume Down") { norns.volumeDown() }
         }
 
         Divider()
@@ -135,6 +212,8 @@ struct MenuBarView: View {
         }
     }
 
+    // MARK: - Alerts
+
     private func promptGitHubUsername() {
         let alert = NSAlert()
         alert.messageText = "GitHub Username"
@@ -148,6 +227,48 @@ struct MenuBarView: View {
             norns.githubUsername = input.stringValue
             norns.fetchInstalledProjects()
             norns.fetchUserRepos()
+        }
+    }
+
+    private func promptAddDevice() {
+        let alert = NSAlert()
+        alert.messageText = "Add Norns Device"
+        alert.informativeText = "Enter the device name and hostname/IP:"
+        alert.addButton(withTitle: "Add")
+        alert.addButton(withTitle: "Cancel")
+
+        let stack = NSStackView(frame: NSRect(x: 0, y: 0, width: 260, height: 56))
+        stack.orientation = .vertical
+        stack.spacing = 8
+        let nameField = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
+        nameField.placeholderString = "Name (e.g. norns-shield)"
+        let hostField = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
+        hostField.placeholderString = "Host (e.g. norns.local or 192.168.1.50)"
+        stack.addArrangedSubview(nameField)
+        stack.addArrangedSubview(hostField)
+        alert.accessoryView = stack
+
+        if alert.runModal() == .alertFirstButtonReturn {
+            let name = nameField.stringValue.isEmpty ? hostField.stringValue : nameField.stringValue
+            let host = hostField.stringValue
+            if !host.isEmpty {
+                norns.addDevice(name: name, host: host)
+            }
+        }
+    }
+
+    private func promptCommunitySearch() {
+        let alert = NSAlert()
+        alert.messageText = "Search Community Scripts"
+        alert.informativeText = "Search for norns scripts on GitHub:"
+        alert.addButton(withTitle: "Search")
+        alert.addButton(withTitle: "Cancel")
+        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
+        input.placeholderString = "e.g. sequencer, granular, drone"
+        alert.accessoryView = input
+        if alert.runModal() == .alertFirstButtonReturn {
+            let query = input.stringValue.isEmpty ? "norns" : input.stringValue
+            norns.searchCommunityScripts(query: query)
         }
     }
 

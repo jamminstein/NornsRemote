@@ -1,5 +1,6 @@
 import Foundation
 import AppKit
+import UniformTypeIdentifiers
 
 /// Central model managing the connection to a Norns device.
 @Observable
@@ -24,6 +25,46 @@ final class NornsConnection {
     }() {
         didSet { UserDefaults.standard.set(customBackground.rawValue, forKey: "NornsCustomBG") }
     }
+
+    // Screenshot & Recording
+    var isRecording = false
+    private var recordedFrames: [CGImage] = []
+
+    // Script Parameters
+    var scriptParams: [ScriptParam] = []
+    var showParams = false
+    private var pendingParams: [ScriptParam] = []
+
+    struct ScriptParam: Identifiable {
+        let id: String
+        let name: String
+        let value: String
+    }
+
+    // Multi-Device
+    var devices: [NornsDevice] = {
+        if let data = UserDefaults.standard.data(forKey: "NornsDevices"),
+           let devs = try? JSONDecoder().decode([NornsDevice].self, from: data) {
+            return devs
+        }
+        return [NornsDevice(name: "norns", host: "norns.local")]
+    }() {
+        didSet {
+            if let data = try? JSONEncoder().encode(devices) {
+                UserDefaults.standard.set(data, forKey: "NornsDevices")
+            }
+        }
+    }
+
+    struct NornsDevice: Identifiable, Codable, Hashable {
+        var id: String { host }
+        var name: String
+        var host: String
+    }
+
+    // Audio Control
+    var isMuted = false
+    var isStreamingAudio = false
 
     private var failCount = 0
 
@@ -51,6 +92,10 @@ final class NornsConnection {
         osc.connect(host: h, port: 10111)
         maiden.connect(host: h, port: 5555)
         screenFetcher.configure(host: h)
+
+        maiden.onOutput = { [weak self] text in
+            self?.handleMaidenOutput(text)
+        }
 
         // Start polling after a short delay
         pollingTask = Task { @MainActor in
@@ -223,6 +268,212 @@ final class NornsConnection {
         customLayout.save()
     }
 
+    // MARK: - Screenshot & Recording
+
+    func saveScreenshot() {
+        guard let image = screenImage else { return }
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.png]
+        let timestamp = Int(Date().timeIntervalSince1970)
+        panel.nameFieldStringValue = "norns-\(currentScript.isEmpty ? "screen" : currentScript)-\(timestamp).png"
+        if panel.runModal() == .OK, let url = panel.url {
+            let rep = NSBitmapImageRep(cgImage: image)
+            if let data = rep.representation(using: .png, properties: [:]) {
+                try? data.write(to: url)
+            }
+        }
+    }
+
+    func copyScreenshot() {
+        guard let image = screenImage else { return }
+        let rep = NSBitmapImageRep(cgImage: image)
+        guard let data = rep.representation(using: .png, properties: [:]) else { return }
+        let nsImage = NSImage(data: data)
+        NSPasteboard.general.clearContents()
+        if let img = nsImage {
+            NSPasteboard.general.writeObjects([img])
+        }
+    }
+
+    func toggleRecording() {
+        if isRecording {
+            isRecording = false
+            guard !recordedFrames.isEmpty else { return }
+            let frames = recordedFrames
+            recordedFrames = []
+            let panel = NSSavePanel()
+            panel.allowedContentTypes = [.gif]
+            let timestamp = Int(Date().timeIntervalSince1970)
+            panel.nameFieldStringValue = "norns-recording-\(timestamp).gif"
+            if panel.runModal() == .OK, let url = panel.url {
+                Task.detached { Self.createGIF(frames: frames, url: url) }
+            }
+        } else {
+            recordedFrames = []
+            isRecording = true
+        }
+    }
+
+    private static func createGIF(frames: [CGImage], url: URL) {
+        guard let dest = CGImageDestinationCreateWithURL(
+            url as CFURL, UTType.gif.identifier as CFString, frames.count, nil
+        ) else { return }
+        let gifProps: [CFString: Any] = [
+            kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFLoopCount: 0]
+        ]
+        CGImageDestinationSetProperties(dest, gifProps as CFDictionary)
+        let frameProps: [CFString: Any] = [
+            kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFDelayTime: 0.2]
+        ]
+        for frame in frames {
+            CGImageDestinationAddImage(dest, frame, frameProps as CFDictionary)
+        }
+        CGImageDestinationFinalize(dest)
+        print("[GIF] Saved \(frames.count) frames to \(url.path)")
+    }
+
+    // MARK: - Script Parameters
+
+    func fetchScriptParams() {
+        pendingParams = []
+        maiden.sendLua(
+            "for i=1,params.count do local p=params:lookup_param(i); " +
+            "print('RPARAM:'..p.id..':'..p.name..':'..(p:string() or '')) end; " +
+            "print('RPARAM_END')"
+        )
+    }
+
+    private func handleMaidenOutput(_ text: String) {
+        let lines = text.components(separatedBy: "\n")
+        for line in lines {
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.hasPrefix("RPARAM:") {
+                let parts = String(trimmed.dropFirst(7)).components(separatedBy: ":")
+                if parts.count >= 3 {
+                    let param = ScriptParam(
+                        id: parts[0],
+                        name: parts[1],
+                        value: parts[2...].joined(separator: ":")
+                    )
+                    pendingParams.append(param)
+                }
+            } else if trimmed.contains("RPARAM_END") {
+                let finished = pendingParams
+                pendingParams = []
+                Task { @MainActor in
+                    self.scriptParams = finished
+                }
+            }
+        }
+    }
+
+    func setParam(id: String, delta: Int) {
+        maiden.sendLua("params:delta('\(id)', \(delta))")
+        // Refresh after a short delay
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(200))
+            fetchScriptParams()
+        }
+    }
+
+    // MARK: - Community Scripts
+
+    func searchCommunityScripts(query: String = "norns") {
+        let q = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query
+        Task {
+            guard let url = URL(string:
+                "https://api.github.com/search/repositories?q=\(q)+topic:norns&sort=stars&per_page=50"
+            ) else { return }
+            var request = URLRequest(url: url)
+            request.setValue("application/vnd.github.v3+json", forHTTPHeaderField: "Accept")
+            do {
+                let (data, _) = try await URLSession.shared.data(for: request)
+                if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let items = json["items"] as? [[String: Any]] {
+                    let repos = items.compactMap { item -> GitHubRepo? in
+                        guard let name = item["name"] as? String,
+                              let htmlUrl = item["html_url"] as? String else { return nil }
+                        let desc = item["description"] as? String ?? ""
+                        let stars = item["stargazers_count"] as? Int ?? 0
+                        let installed = self.installedProjects.contains(name)
+                        return GitHubRepo(
+                            id: "\(htmlUrl)",
+                            name: name,
+                            url: htmlUrl,
+                            description: "\(desc)\(stars > 0 ? " ★\(stars)" : "")",
+                            isInstalled: installed
+                        )
+                    }
+                    await MainActor.run { self.communityScripts = repos }
+                }
+            } catch {
+                print("[Community] search error: \(error)")
+            }
+        }
+    }
+
+    // MARK: - Multi-Device
+
+    func switchDevice(_ device: NornsDevice) {
+        disconnect()
+        host = device.host
+        connect()
+        fetchScripts()
+        fetchInstalledProjects()
+    }
+
+    func addDevice(name: String, host: String) {
+        let dev = NornsDevice(name: name, host: host)
+        if !devices.contains(where: { $0.host == host }) {
+            devices.append(dev)
+        }
+    }
+
+    func removeDevice(_ device: NornsDevice) {
+        devices.removeAll { $0.host == device.host }
+    }
+
+    // MARK: - Audio Control
+
+    func toggleMute() {
+        if isMuted {
+            // Restore volume
+            maiden.sendLua("_norns.audio_monitor_level(_norns_remote_saved_vol or 1.0)")
+            maiden.sendLua("_norns.audio_output_level(_norns_remote_saved_out or 1.0)")
+            isMuted = false
+        } else {
+            // Save current levels then mute
+            maiden.sendLua("_norns_remote_saved_vol = _norns.audio_get_monitor_level and _norns.audio_get_monitor_level() or 1.0")
+            maiden.sendLua("_norns_remote_saved_out = _norns.audio_get_output_level and _norns.audio_get_output_level() or 1.0")
+            maiden.sendLua("_norns.audio_monitor_level(0)")
+            maiden.sendLua("_norns.audio_output_level(0)")
+            isMuted = true
+        }
+    }
+
+    func volumeUp() {
+        // Turn E1 (system volume) up
+        encoderTurn(1, delta: 1)
+    }
+
+    func volumeDown() {
+        // Turn E1 (system volume) down
+        encoderTurn(1, delta: -1)
+    }
+
+    func toggleAudioStream() {
+        if isStreamingAudio {
+            maiden.sendLua("if _norns_remote_audio then _norns_remote_audio:free() end; _norns_remote_audio = nil")
+            isStreamingAudio = false
+        } else {
+            maiden.sendLua("""
+            _norns_remote_audio = true
+            print('Audio streaming requires SC network audio setup on norns side.')
+            """)
+            isStreamingAudio = true
+        }
+    }
+
     // MARK: - Screen Polling
 
     @MainActor
@@ -237,6 +488,7 @@ final class NornsConnection {
             // Fetch the screenshot
             if let image = await screenFetcher.fetchScreen() {
                 screenImage = image
+                if isRecording { recordedFrames.append(image) }
                 failCount = 0
                 isConnected = true
                 connectionHealth = .connected

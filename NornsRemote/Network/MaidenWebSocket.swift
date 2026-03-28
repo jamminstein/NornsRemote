@@ -7,6 +7,7 @@ final class MaidenWebSocket {
     private var webSocketTask: URLSessionWebSocketTask?
     private let session = URLSession(configuration: .default)
     private(set) var isConnected = false
+    var onOutput: ((String) -> Void)?
 
     func connect(host: String, port: Int = 5555) {
         disconnect()
@@ -50,7 +51,17 @@ final class MaidenWebSocket {
     private func listenForMessages() {
         webSocketTask?.receive { [weak self] result in
             switch result {
-            case .success:
+            case .success(let message):
+                switch message {
+                case .string(let text):
+                    self?.onOutput?(text)
+                case .data(let data):
+                    if let text = String(data: data, encoding: .utf8) {
+                        self?.onOutput?(text)
+                    }
+                @unknown default:
+                    break
+                }
                 self?.listenForMessages()
             case .failure(let error):
                 print("[Maiden] receive error: \(error)")
