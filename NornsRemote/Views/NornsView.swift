@@ -120,74 +120,61 @@ struct NornsView: View {
         GeometryReader { geo in
             let w = geo.size.width
             let h = geo.size.height
-            let editing = norns.isEditingLayout
-            let layout = norns.customLayout
 
             ZStack {
-                Color(red: 0.14, green: 0.14, blue: 0.14)
+                customBackground
                     .contextMenu { contextMenuItems }
 
                 // Screen
-                customComponent(
-                    layout: layout.screen,
-                    keyPath: \.screen,
-                    windowSize: geo.size
-                ) {
-                    ScreenView(
-                        image: norns.screenImage,
-                        width: CustomLayout.baseScreenW * layout.screen.scale,
-                        height: CustomLayout.baseScreenH * layout.screen.scale,
-                        connectionHealth: norns.connectionHealth
-                    )
-                }
+                ScreenView(
+                    image: norns.screenImage,
+                    width: CustomLayout.baseScreenW * norns.customLayout.screen.scale,
+                    height: CustomLayout.baseScreenH * norns.customLayout.screen.scale,
+                    connectionHealth: norns.connectionHealth
+                )
+                .editablePosition(keyPath: \.screen, windowSize: geo.size, norns: norns)
 
                 // K1
-                customComponent(layout: layout.k1, keyPath: \.k1, windowSize: geo.size) {
-                    ButtonView(size: CustomLayout.baseButtonK1 * layout.k1.scale,
-                              onPress: { norns.keyPress(1) },
-                              onRelease: { norns.keyRelease(1) })
-                }
+                ButtonView(size: CustomLayout.baseButtonK1 * norns.customLayout.k1.scale,
+                          onPress: { norns.keyPress(1) },
+                          onRelease: { norns.keyRelease(1) })
+                .editablePosition(keyPath: \.k1, windowSize: geo.size, norns: norns)
 
                 // E1
-                customComponent(layout: layout.e1, keyPath: \.e1, windowSize: geo.size) {
-                    EncoderView(size: CustomLayout.baseEncoder * layout.e1.scale) { delta in
-                        norns.encoderTurn(1, delta: delta)
-                    }
+                EncoderView(size: CustomLayout.baseEncoder * norns.customLayout.e1.scale) { delta in
+                    norns.encoderTurn(1, delta: delta)
                 }
+                .editablePosition(keyPath: \.e1, windowSize: geo.size, norns: norns)
 
                 // E2
-                customComponent(layout: layout.e2, keyPath: \.e2, windowSize: geo.size) {
-                    EncoderView(size: CustomLayout.baseEncoder * layout.e2.scale) { delta in
-                        norns.encoderTurn(2, delta: delta)
-                    }
+                EncoderView(size: CustomLayout.baseEncoder * norns.customLayout.e2.scale) { delta in
+                    norns.encoderTurn(2, delta: delta)
                 }
+                .editablePosition(keyPath: \.e2, windowSize: geo.size, norns: norns)
 
                 // E3
-                customComponent(layout: layout.e3, keyPath: \.e3, windowSize: geo.size) {
-                    EncoderView(size: CustomLayout.baseEncoder * layout.e3.scale) { delta in
-                        norns.encoderTurn(3, delta: delta)
-                    }
+                EncoderView(size: CustomLayout.baseEncoder * norns.customLayout.e3.scale) { delta in
+                    norns.encoderTurn(3, delta: delta)
                 }
+                .editablePosition(keyPath: \.e3, windowSize: geo.size, norns: norns)
 
                 // K2
-                customComponent(layout: layout.k2, keyPath: \.k2, windowSize: geo.size) {
-                    ButtonView(size: CustomLayout.baseButton * layout.k2.scale,
-                              onPress: { norns.keyPress(2) },
-                              onRelease: { norns.keyRelease(2) })
-                }
+                ButtonView(size: CustomLayout.baseButton * norns.customLayout.k2.scale,
+                          onPress: { norns.keyPress(2) },
+                          onRelease: { norns.keyRelease(2) })
+                .editablePosition(keyPath: \.k2, windowSize: geo.size, norns: norns)
 
                 // K3
-                customComponent(layout: layout.k3, keyPath: \.k3, windowSize: geo.size) {
-                    ButtonView(size: CustomLayout.baseButton * layout.k3.scale,
-                              onPress: { norns.keyPress(3) },
-                              onRelease: { norns.keyRelease(3) })
-                }
+                ButtonView(size: CustomLayout.baseButton * norns.customLayout.k3.scale,
+                          onPress: { norns.keyPress(3) },
+                          onRelease: { norns.keyRelease(3) })
+                .editablePosition(keyPath: \.k3, windowSize: geo.size, norns: norns)
 
                 // Edit mode indicator
-                if editing {
+                if norns.isEditingLayout {
                     VStack {
                         HStack {
-                            Text("EDIT MODE")
+                            Text("EDIT MODE — drag to move, scroll to resize")
                                 .font(.system(size: 10, weight: .bold, design: .monospaced))
                                 .foregroundColor(.white.opacity(0.5))
                                 .padding(.horizontal, 8)
@@ -208,56 +195,17 @@ struct NornsView: View {
     }
 
     @ViewBuilder
-    private func customComponent<Content: View>(
-        layout: ComponentLayout,
-        keyPath: WritableKeyPath<CustomLayout, ComponentLayout>,
-        windowSize: CGSize,
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        let editing = norns.isEditingLayout
-        let posX = layout.x * windowSize.width
-        let posY = layout.y * windowSize.height
-
-        content()
-            .position(x: posX, y: posY)
-            .overlay(
-                Group {
-                    if editing {
-                        RoundedRectangle(cornerRadius: 4)
-                            .stroke(Color.cyan.opacity(0.6), lineWidth: 1.5)
-                            .position(x: posX, y: posY)
-                            .allowsHitTesting(false)
-                    }
-                }
-            )
-            .overlay(
-                Group {
-                    if editing {
-                        Color.clear
-                            .contentShape(Rectangle())
-                            .frame(width: 80, height: 80)
-                            .position(x: posX, y: posY)
-                            .gesture(
-                                DragGesture()
-                                    .onChanged { value in
-                                        var comp = norns.customLayout[keyPath: keyPath]
-                                        comp.x = value.location.x / windowSize.width
-                                        comp.y = value.location.y / windowSize.height
-                                        norns.customLayout[keyPath: keyPath] = comp
-                                    }
-                                    .onEnded { _ in
-                                        norns.saveCustomLayout()
-                                    }
-                            )
-                            .onScrollWheel { delta in
-                                var comp = norns.customLayout[keyPath: keyPath]
-                                comp.scale = max(0.3, min(3.0, comp.scale + delta * 0.05))
-                                norns.customLayout[keyPath: keyPath] = comp
-                                norns.saveCustomLayout()
-                            }
-                    }
-                }
-            )
+    private var customBackground: some View {
+        switch norns.customBackground {
+        case .original:
+            Color(red: 0.70, green: 0.67, blue: 0.64)
+        case .black:
+            Color(red: 0.10, green: 0.10, blue: 0.10)
+        case .gradient:
+            AnimatedGradientView()
+        case .glass:
+            VisualEffectBackground()
+        }
     }
 
     // MARK: - Context Menu
@@ -285,6 +233,20 @@ struct NornsView: View {
                 norns.isEditingLayout.toggle()
                 if !norns.isEditingLayout {
                     norns.saveCustomLayout()
+                }
+            }
+            Menu("Background") {
+                Button(norns.customBackground == .black ? "Black ✓" : "Black") {
+                    norns.customBackground = .black
+                }
+                Button(norns.customBackground == .original ? "Original ✓" : "Original") {
+                    norns.customBackground = .original
+                }
+                Button(norns.customBackground == .gradient ? "Gradient ✓" : "Gradient") {
+                    norns.customBackground = .gradient
+                }
+                Button(norns.customBackground == .glass ? "Glass ✓" : "Glass") {
+                    norns.customBackground = .glass
                 }
             }
             Button("Reset Layout") {
@@ -329,9 +291,150 @@ struct NornsView: View {
             window.setFrame(NSRect(x: origin.x, y: origin.y, width: 716, height: 440),
                           display: true, animate: true)
         case .custom:
-            window.contentAspectRatio = NSSize(width: 0, height: 0)
+            window.resizeIncrements = NSSize(width: 1, height: 1) // clears aspect ratio lock
             window.contentMinSize = NSSize(width: 300, height: 200)
             window.minSize = NSSize(width: 300, height: 200)
         }
     }
+}
+
+// MARK: - Editable Position Modifier
+
+struct EditablePositionModifier: ViewModifier {
+    let keyPath: WritableKeyPath<CustomLayout, ComponentLayout>
+    let windowSize: CGSize
+    let norns: NornsConnection
+
+    @State private var dragOffset: CGSize = .zero
+
+    func body(content: Content) -> some View {
+        let layout = norns.customLayout[keyPath: keyPath]
+        let x = layout.x * windowSize.width + dragOffset.width
+        let y = layout.y * windowSize.height + dragOffset.height
+
+        content
+            .overlay(
+                Group {
+                    if norns.isEditingLayout {
+                        RoundedRectangle(cornerRadius: 4)
+                            .stroke(Color.cyan.opacity(0.5), lineWidth: 1.5)
+                            .allowsHitTesting(false)
+                    }
+                }
+            )
+            .position(x: x, y: y)
+            .gesture(norns.isEditingLayout ?
+                DragGesture()
+                    .onChanged { value in
+                        dragOffset = value.translation
+                    }
+                    .onEnded { value in
+                        var comp = norns.customLayout[keyPath: keyPath]
+                        comp.x += value.translation.width / windowSize.width
+                        comp.y += value.translation.height / windowSize.height
+                        comp.x = max(0.05, min(0.95, comp.x))
+                        comp.y = max(0.05, min(0.95, comp.y))
+                        norns.customLayout[keyPath: keyPath] = comp
+                        norns.saveCustomLayout()
+                        dragOffset = .zero
+                    }
+                : nil
+            )
+    }
+}
+
+extension View {
+    func editablePosition(
+        keyPath: WritableKeyPath<CustomLayout, ComponentLayout>,
+        windowSize: CGSize,
+        norns: NornsConnection
+    ) -> some View {
+        modifier(EditablePositionModifier(keyPath: keyPath, windowSize: windowSize, norns: norns))
+    }
+}
+
+// MARK: - Animated Gradient Background (warm dark with film grain)
+
+struct AnimatedGradientView: View {
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 24)) { timeline in
+            let t = timeline.date.timeIntervalSinceReferenceDate
+            Canvas { context, size in
+                let w = size.width
+                let h = size.height
+
+                // Black base
+                context.fill(Path(CGRect(origin: .zero, size: size)), with: .color(.black))
+
+                // Warm light source 1 — bottom left, drifting
+                let x1 = w * (0.15 + 0.1 * sin(t * 0.15))
+                let y1 = h * (0.95 + 0.05 * cos(t * 0.12))
+                let r1 = max(w, h) * 0.7
+                let hue1 = 0.98 + 0.02 * sin(t * 0.08) // warm red-pink
+                context.fill(
+                    Path(ellipseIn: CGRect(x: x1 - r1, y: y1 - r1, width: r1 * 2, height: r1 * 2)),
+                    with: .radialGradient(
+                        Gradient(colors: [
+                            Color(hue: hue1, saturation: 0.55, brightness: 0.28, opacity: 0.7),
+                            Color(hue: hue1, saturation: 0.4, brightness: 0.12, opacity: 0.3),
+                            .clear
+                        ]),
+                        center: CGPoint(x: x1, y: y1),
+                        startRadius: 0,
+                        endRadius: r1
+                    )
+                )
+
+                // Warm light source 2 — bottom right, drifting opposite
+                let x2 = w * (0.85 + 0.1 * cos(t * 0.13))
+                let y2 = h * (0.95 + 0.05 * sin(t * 0.1))
+                let r2 = max(w, h) * 0.65
+                let hue2 = 0.02 + 0.02 * cos(t * 0.09) // salmon/pink
+                context.fill(
+                    Path(ellipseIn: CGRect(x: x2 - r2, y: y2 - r2, width: r2 * 2, height: r2 * 2)),
+                    with: .radialGradient(
+                        Gradient(colors: [
+                            Color(hue: hue2, saturation: 0.5, brightness: 0.25, opacity: 0.6),
+                            Color(hue: hue2, saturation: 0.35, brightness: 0.10, opacity: 0.2),
+                            .clear
+                        ]),
+                        center: CGPoint(x: x2, y: y2),
+                        startRadius: 0,
+                        endRadius: r2
+                    )
+                )
+
+                // Film grain / dither overlay
+                let seed = UInt64(t * 24) &* 6364136223846793005 &+ 1442695040888963407
+                for _ in 0..<Int(w * h * 0.04) {
+                    var s = seed &* UInt64.random(in: 1...UInt64.max)
+                    s ^= s >> 12; s ^= s << 25; s ^= s >> 27
+                    let gx = CGFloat(s % UInt64(w))
+                    s = s &* 6364136223846793005 &+ 1442695040888963407
+                    s ^= s >> 12; s ^= s << 25; s ^= s >> 27
+                    let gy = CGFloat(s % UInt64(h))
+                    let brightness = CGFloat(s % 100) / 100.0
+                    let opacity = brightness * 0.06
+                    context.fill(
+                        Path(CGRect(x: gx, y: gy, width: 1, height: 1)),
+                        with: .color(.white.opacity(opacity))
+                    )
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Glass Background (transparent, desktop shows through)
+
+struct VisualEffectBackground: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = .hudWindow
+        view.blendingMode = .behindWindow
+        view.state = .active
+        return view
+    }
+
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {}
 }

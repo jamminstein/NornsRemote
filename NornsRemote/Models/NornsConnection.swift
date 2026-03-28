@@ -13,9 +13,17 @@ final class NornsConnection {
     enum ViewMode: String, CaseIterable {
         case full, custom, mini
     }
+    enum BackgroundStyle: String, Codable, CaseIterable {
+        case original, black, gradient, glass
+    }
     var viewMode: ViewMode = .full
     var isEditingLayout = false
     var customLayout = CustomLayout.load()
+    var customBackground: BackgroundStyle = {
+        BackgroundStyle(rawValue: UserDefaults.standard.string(forKey: "NornsCustomBG") ?? "black") ?? .black
+    }() {
+        didSet { UserDefaults.standard.set(customBackground.rawValue, forKey: "NornsCustomBG") }
+    }
 
     private var failCount = 0
 

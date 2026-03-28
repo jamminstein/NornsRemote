@@ -105,7 +105,7 @@ struct MenuBarView: View {
             window.setFrame(NSRect(x: origin.x, y: origin.y, width: 740, height: 460),
                           display: true, animate: true)
         case .custom:
-            window.contentAspectRatio = NSSize(width: 0, height: 0)
+            window.resizeIncrements = NSSize(width: 1, height: 1)
         }
     }
 }
