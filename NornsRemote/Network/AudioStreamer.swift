@@ -36,12 +36,12 @@ final class AudioStreamer {
     func start(host: String, maiden: MaidenWebSocket) {
         guard !isStreaming else { return }
 
-        // 1. Tell norns to start audio capture → TCP stream
+        // 1. Tell norns to start audio capture → TCP stream via ffmpeg + JACK
         let port = streamPort
         maiden.sendLua("""
-        os.execute("pkill -f NornsRemoteCapture 2>/dev/null; sleep 0.2")
-        os.execute("sox -t jack 'NornsRemoteCapture' -t raw -r 48000 -c 2 -b 16 -e signed - 2>/dev/null | nc -l -p \(port) &")
-        os.execute("sleep 0.5 && jack_connect crone:output_1 NornsRemoteCapture:input_1 2>/dev/null && jack_connect crone:output_2 NornsRemoteCapture:input_2 2>/dev/null &")
+        os.execute("pkill -f NornsRemoteAudio 2>/dev/null; sleep 0.2")
+        os.execute("ffmpeg -f jack -i NornsRemoteAudio -f s16le -ar 48000 -ac 2 - 2>/dev/null | nc -l -p \(port) &")
+        os.execute("sleep 1 && jack_connect crone:output_1 NornsRemoteAudio:input_1 2>/dev/null && jack_connect crone:output_2 NornsRemoteAudio:input_2 2>/dev/null &")
         """)
 
         // 2. Setup AVAudioEngine
@@ -82,7 +82,7 @@ final class AudioStreamer {
         connection = nil
         accumulator = Data()
 
-        maiden.sendLua("os.execute(\"pkill -f NornsRemoteCapture 2>/dev/null\")")
+        maiden.sendLua("os.execute(\"pkill -f NornsRemoteAudio 2>/dev/null\")")
     }
 
     // MARK: - TCP

@@ -630,74 +630,119 @@ class DragHandlerNSView: NSView {
     }
 }
 
-// MARK: - Animated Gradient Background (warm dark with film grain)
+// MARK: - Animated Gradient Background (international orange ↔ light gray, heavily dithered)
 
 struct AnimatedGradientView: View {
+    // Bayer 4x4 ordered dither matrix
+    private static let bayer: [CGFloat] = [
+        0.0/16, 8.0/16, 2.0/16, 10.0/16,
+        12.0/16, 4.0/16, 14.0/16, 6.0/16,
+        3.0/16, 11.0/16, 1.0/16, 9.0/16,
+        15.0/16, 7.0/16, 13.0/16, 5.0/16
+    ]
+
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 24)) { timeline in
+        TimelineView(.animation(minimumInterval: 1.0 / 18)) { timeline in
             let t = timeline.date.timeIntervalSinceReferenceDate
-            Canvas { context, size in
-                let w = size.width
-                let h = size.height
+            Canvas { ctx, size in
+                Self.draw(ctx: &ctx, size: size, t: t)
+            }
+        }
+    }
 
-                // Black base
-                context.fill(Path(CGRect(origin: .zero, size: size)), with: .color(.black))
+    private static func draw(ctx: inout GraphicsContext, size: CGSize, t: Double) {
+        let w = Int(size.width)
+        let h = Int(size.height)
+        let step = 3  // pixel block size for dithered look
 
-                // Warm light source 1 — bottom left, drifting
-                let x1 = w * (0.15 + 0.1 * sin(t * 0.15))
-                let y1 = h * (0.95 + 0.05 * cos(t * 0.12))
-                let r1 = max(w, h) * 0.7
-                let hue1 = 0.98 + 0.02 * sin(t * 0.08) // warm red-pink
-                context.fill(
-                    Path(ellipseIn: CGRect(x: x1 - r1, y: y1 - r1, width: r1 * 2, height: r1 * 2)),
-                    with: .radialGradient(
-                        Gradient(colors: [
-                            Color(hue: hue1, saturation: 0.55, brightness: 0.28, opacity: 0.7),
-                            Color(hue: hue1, saturation: 0.4, brightness: 0.12, opacity: 0.3),
-                            .clear
-                        ]),
-                        center: CGPoint(x: x1, y: y1),
-                        startRadius: 0,
-                        endRadius: r1
-                    )
-                )
+        // Light gray base
+        ctx.fill(Path(CGRect(origin: .zero, size: size)),
+                 with: .color(Color(red: 0.78, green: 0.76, blue: 0.74)))
 
-                // Warm light source 2 — bottom right, drifting opposite
-                let x2 = w * (0.85 + 0.1 * cos(t * 0.13))
-                let y2 = h * (0.95 + 0.05 * sin(t * 0.1))
-                let r2 = max(w, h) * 0.65
-                let hue2 = 0.02 + 0.02 * cos(t * 0.09) // salmon/pink
-                context.fill(
-                    Path(ellipseIn: CGRect(x: x2 - r2, y: y2 - r2, width: r2 * 2, height: r2 * 2)),
-                    with: .radialGradient(
-                        Gradient(colors: [
-                            Color(hue: hue2, saturation: 0.5, brightness: 0.25, opacity: 0.6),
-                            Color(hue: hue2, saturation: 0.35, brightness: 0.10, opacity: 0.2),
-                            .clear
-                        ]),
-                        center: CGPoint(x: x2, y: y2),
-                        startRadius: 0,
-                        endRadius: r2
-                    )
-                )
+        // International orange: RGB ~(1.0, 0.31, 0.0) / hue ~0.05
+        // Light gray: RGB ~(0.78, 0.76, 0.74)
 
-                // Film grain / dither overlay
-                let seed = UInt64(t * 24) &* 6364136223846793005 &+ 1442695040888963407
-                for _ in 0..<Int(w * h * 0.04) {
-                    var s = seed &* UInt64.random(in: 1...UInt64.max)
-                    s ^= s >> 12; s ^= s << 25; s ^= s >> 27
-                    let gx = CGFloat(s % UInt64(w))
-                    s = s &* 6364136223846793005 &+ 1442695040888963407
-                    s ^= s >> 12; s ^= s << 25; s ^= s >> 27
-                    let gy = CGFloat(s % UInt64(h))
-                    let brightness = CGFloat(s % 100) / 100.0
-                    let opacity = brightness * 0.06
-                    context.fill(
-                        Path(CGRect(x: gx, y: gy, width: 1, height: 1)),
-                        with: .color(.white.opacity(opacity))
+        for py in stride(from: 0, to: h, by: step) {
+            let fy = CGFloat(py) / CGFloat(h)
+            for px in stride(from: 0, to: w, by: step) {
+                let fx = CGFloat(px) / CGFloat(w)
+
+                // Morphing orange blob 1 — large, drifting
+                let bx1: CGFloat = 0.3 + 0.35 * sin(t * 0.1 + 1.2)
+                let by1: CGFloat = 0.5 + 0.35 * cos(t * 0.08 + 0.7)
+                let d1 = sqrt((fx - bx1) * (fx - bx1) + (fy - by1) * (fy - by1))
+                var val: CGFloat = max(0, 0.55 - d1) * 1.8
+
+                // Morphing blob 2 — smaller, faster
+                let bx2: CGFloat = 0.7 + 0.3 * cos(t * 0.13 + 3.0)
+                let by2: CGFloat = 0.4 + 0.3 * sin(t * 0.11 + 1.5)
+                let d2 = sqrt((fx - bx2) * (fx - bx2) + (fy - by2) * (fy - by2))
+                val += max(0, 0.4 - d2) * 1.5
+
+                // Distortion waves
+                let wave1 = sin((fx * 6.0 + fy * 4.0 + CGFloat(t) * 0.2) * .pi)
+                val += wave1 * 0.15
+
+                // Horizontal distortion bands
+                let band = sin(fy * 20.0 + CGFloat(t) * 0.5)
+                if band > 0.85 { val += 0.2 }
+
+                // Noise distortion
+                let noiseSeed = UInt64(Double(px * 31 + py * 97) + t * 3.0)
+                let noise = CGFloat((noiseSeed &* 2654435761) % 256) / 256.0
+                val += (noise - 0.5) * 0.15
+
+                // Bayer ordered dither
+                let threshold = bayer[(py % 4) * 4 + (px % 4)]
+                let dithered = val > threshold
+
+                if dithered {
+                    // International orange with slight variation
+                    let orangeShift = sin(CGFloat(t) * 0.15 + fx * 2.0) * 0.05
+                    ctx.fill(
+                        Path(CGRect(x: px, y: py, width: step, height: step)),
+                        with: .color(Color(
+                            red: min(1.0, 0.95 + orangeShift),
+                            green: 0.31 + orangeShift * 0.5,
+                            blue: 0.0
+                        ))
                     )
                 }
+                // else: light gray base shows through
             }
+        }
+
+        // Glitch tears — horizontal displacement artifacts
+        let tearCount = (Int(t * 2.5) % 3) + 1
+        for i in 0..<tearCount {
+            let seed: UInt64 = UInt64(t * 5.0 + Double(i) * 17.0) &* 6364136223846793005
+            let tearY = CGFloat(seed % UInt64(h))
+            let tearH = CGFloat(1 + (seed >> 16) % 4)
+            let offset = CGFloat(Int(seed >> 32) % 12) - 6
+            ctx.fill(
+                Path(CGRect(x: offset, y: tearY, width: size.width, height: tearH)),
+                with: .color(Color(red: 0.78, green: 0.76, blue: 0.74))
+            )
+        }
+
+        // Heavy grain overlay
+        let grainSeed = UInt64(t * 18) &* 6364136223846793005
+        let grainCount = Int(size.width * size.height * 0.06)
+        for i in 0..<grainCount {
+            var s = grainSeed &+ UInt64(i) &* 2654435761
+            s ^= s >> 12; s ^= s << 25; s ^= s >> 27
+            let gx = CGFloat(s % UInt64(w))
+            s = s &* 6364136223846793005 &+ 1442695040888963407
+            s ^= s >> 12; s ^= s << 25; s ^= s >> 27
+            let gy = CGFloat(s % UInt64(h))
+            let isOrange = (s >> 40) % 3 == 0
+            let opacity: CGFloat = CGFloat((s >> 48) % 80 + 20) / 1000.0
+            ctx.fill(
+                Path(CGRect(x: gx, y: gy, width: 2, height: 2)),
+                with: .color(isOrange
+                    ? Color(red: 1.0, green: 0.31, blue: 0.0, opacity: opacity * 3)
+                    : Color.white.opacity(opacity))
+            )
         }
     }
 }
