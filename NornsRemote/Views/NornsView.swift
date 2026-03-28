@@ -604,12 +604,30 @@ struct DragHandlerNSViewRep: NSViewRepresentable {
 
 class DragHandlerNSView: NSView {
     var coordinator: DragHandlerNSViewRep.Coordinator?
+    private var trackingArea: NSTrackingArea?
 
     override var mouseDownCanMoveWindow: Bool { false }
     override var acceptsFirstResponder: Bool { true }
 
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let existing = trackingArea { removeTrackingArea(existing) }
+        let area = NSTrackingArea(
+            rect: bounds,
+            options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(area)
+        trackingArea = area
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        window?.makeFirstResponder(self)
+    }
+
     override func mouseDown(with event: NSEvent) {
-        // Capture — don't pass to super (which would move window)
+        window?.makeFirstResponder(self)
     }
 
     override func mouseDragged(with event: NSEvent) {
@@ -627,6 +645,13 @@ class DragHandlerNSView: NSView {
         if abs(delta) > 0.1 {
             coordinator?.onScroll?(delta > 0 ? 0.05 : -0.05)
         }
+        // Don't pass to super — consume the event
+    }
+
+    // Also support right-click drag as alternative resize
+    override func rightMouseDragged(with event: NSEvent) {
+        let delta = -event.deltaY * 0.01
+        coordinator?.onScroll?(delta)
     }
 }
 
