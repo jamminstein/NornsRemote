@@ -64,12 +64,55 @@ struct MenuBarView: View {
 
         Divider()
 
-        // Scripts
+        // Load Script
         Menu("Load Script") {
             ForEach(norns.scripts, id: \.self) { script in
                 Button(script) {
                     norns.loadScript(script)
                 }
+            }
+        }
+
+        Divider()
+
+        // My Scripts (GitHub)
+        Menu("My Scripts") {
+            if norns.githubUsername.isEmpty {
+                Button("Set GitHub Username...") {
+                    promptGitHubUsername()
+                }
+            } else {
+                Button("GitHub: \(norns.githubUsername)") {}.disabled(true)
+                Button("Change Username...") {
+                    promptGitHubUsername()
+                }
+                Button("Refresh") {
+                    norns.fetchInstalledProjects()
+                    norns.fetchUserRepos()
+                }
+                Divider()
+                if norns.userRepos.isEmpty {
+                    Text("No repos found")
+                } else {
+                    ForEach(norns.userRepos) { repo in
+                        if repo.isInstalled {
+                            Menu("\(repo.name) ✓") {
+                                Button("Load") { norns.loadScript(repo.name) }
+                                Button("Remove") { norns.removeScript(name: repo.name) }
+                            }
+                        } else {
+                            Button("Install \(repo.name)") {
+                                norns.installScript(url: repo.url)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .onAppear {
+            norns.fetchInstalledProjects()
+            if !norns.githubUsername.isEmpty {
+                norns.fetchUserRepos()
             }
         }
 
@@ -89,6 +132,22 @@ struct MenuBarView: View {
 
         Button("Quit") {
             NSApplication.shared.terminate(nil)
+        }
+    }
+
+    private func promptGitHubUsername() {
+        let alert = NSAlert()
+        alert.messageText = "GitHub Username"
+        alert.informativeText = "Enter your GitHub username to browse your norns scripts:"
+        alert.addButton(withTitle: "OK")
+        alert.addButton(withTitle: "Cancel")
+        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
+        input.stringValue = norns.githubUsername
+        alert.accessoryView = input
+        if alert.runModal() == .alertFirstButtonReturn {
+            norns.githubUsername = input.stringValue
+            norns.fetchInstalledProjects()
+            norns.fetchUserRepos()
         }
     }
 

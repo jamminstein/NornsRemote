@@ -14,7 +14,7 @@ final class NornsConnection {
         case full, custom, mini
     }
     enum BackgroundStyle: String, Codable, CaseIterable {
-        case original, black, gradient, glass
+        case original, black, gradient, glass, punk
     }
     var viewMode: ViewMode = .full
     var isEditingLayout = false
@@ -91,6 +91,115 @@ final class NornsConnection {
     func loadScript(_ name: String) {
         currentScript = name
         maiden.sendLua("norns.script.load(\"code/\(name)/\(name).lua\")")
+    }
+
+    // MARK: - Script Management (install/remove via Maiden project manager)
+
+    var installedProjects: [String] = []
+    var githubUsername: String {
+        get { UserDefaults.standard.string(forKey: "NornsGitHubUser") ?? "" }
+        set { UserDefaults.standard.set(newValue, forKey: "NornsGitHubUser") }
+    }
+    var userRepos: [GitHubRepo] = []
+    var communityScripts: [GitHubRepo] = []
+
+    struct GitHubRepo: Identifiable, Hashable {
+        let id: String
+        let name: String
+        let url: String
+        let description: String
+        var isInstalled: Bool
+    }
+
+    func fetchInstalledProjects() {
+        let h = host
+        Task {
+            guard let url = URL(string: "http://\(h)/api/v1/projects") else { return }
+            do {
+                let (data, _) = try await URLSession.shared.data(from: url)
+                if let json = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+                    let names = json.compactMap { $0["name"] as? String }
+                    await MainActor.run { self.installedProjects = names }
+                }
+            } catch {
+                print("[Projects] fetch error: \(error)")
+            }
+        }
+    }
+
+    func fetchUserRepos() {
+        let user = githubUsername
+        guard !user.isEmpty else { return }
+        Task {
+            guard let url = URL(string: "https://api.github.com/users/\(user)/repos?per_page=100&sort=updated") else { return }
+            do {
+                var request = URLRequest(url: url)
+                request.setValue("application/vnd.github.v3+json", forHTTPHeaderField: "Accept")
+                let (data, _) = try await URLSession.shared.data(for: request)
+                if let json = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+                    let repos: [GitHubRepo] = json.compactMap { item in
+                        guard let name = item["name"] as? String,
+                              let htmlUrl = item["html_url"] as? String else { return nil }
+                        let desc = item["description"] as? String ?? ""
+                        let installed = self.installedProjects.contains(name)
+                        return GitHubRepo(id: name, name: name, url: htmlUrl, description: desc, isInstalled: installed)
+                    }
+                    await MainActor.run { self.userRepos = repos }
+                }
+            } catch {
+                print("[GitHub] fetch error: \(error)")
+            }
+        }
+    }
+
+    func installScript(url: String) {
+        let h = host
+        Task {
+            guard let apiUrl = URL(string: "http://\(h)/api/v1/projects/install") else { return }
+            var request = URLRequest(url: apiUrl)
+            request.httpMethod = "POST"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            let body = ["url": url + ".git"]
+            request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+            do {
+                let (_, response) = try await URLSession.shared.data(for: request)
+                if let http = response as? HTTPURLResponse, http.statusCode == 200 {
+                    print("[Install] success: \(url)")
+                    await MainActor.run {
+                        fetchInstalledProjects()
+                        fetchScripts()
+                        fetchUserRepos()
+                    }
+                }
+            } catch {
+                print("[Install] error: \(error)")
+            }
+        }
+    }
+
+    func removeScript(name: String) {
+        let h = host
+        Task {
+            guard let apiUrl = URL(string: "http://\(h)/api/v1/projects/remove") else { return }
+            var request = URLRequest(url: apiUrl)
+            request.httpMethod = "POST"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            let body = ["name": name]
+            request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+            do {
+                let (_, response) = try await URLSession.shared.data(for: request)
+                if let http = response as? HTTPURLResponse, http.statusCode == 200 {
+                    print("[Remove] success: \(name)")
+                    await MainActor.run {
+                        fetchInstalledProjects()
+                        fetchScripts()
+                        fetchUserRepos()
+                    }
+                }
+            } catch {
+                print("[Remove] error: \(error)")
+            }
+        }
     }
 
     func encoderTurn(_ n: Int, delta: Int) {

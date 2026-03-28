@@ -15,6 +15,8 @@ struct NornsView: View {
         .onAppear {
             norns.connect()
             norns.fetchScripts()
+            norns.fetchInstalledProjects()
+            if !norns.githubUsername.isEmpty { norns.fetchUserRepos() }
         }
         .onDisappear {
             norns.disconnect()
@@ -118,78 +120,60 @@ struct NornsView: View {
 
     private var customView: some View {
         GeometryReader { geo in
-            let w = geo.size.width
-            let h = geo.size.height
+            let bw: CGFloat = 700
+            let bh: CGFloat = 452
+            let scale = min(geo.size.width / (bw + 16), geo.size.height / (bh + 16))
+            let w: CGFloat = bw * scale
+            let h: CGFloat = bh * scale
 
             ZStack {
                 customBackground
                     .contextMenu { contextMenuItems }
 
-                // Screen
-                ScreenView(
-                    image: norns.screenImage,
-                    width: CustomLayout.baseScreenW * norns.customLayout.screen.scale,
-                    height: CustomLayout.baseScreenH * norns.customLayout.screen.scale,
-                    connectionHealth: norns.connectionHealth
-                )
-                .editablePosition(keyPath: \.screen, windowSize: geo.size, norns: norns)
+                ZStack(alignment: .topLeading) {
+                    Color.clear.frame(width: w, height: h)
 
-                // K1
-                ButtonView(size: CustomLayout.baseButtonK1 * norns.customLayout.k1.scale,
-                          onPress: { norns.keyPress(1) },
-                          onRelease: { norns.keyRelease(1) })
-                .editablePosition(keyPath: \.k1, windowSize: geo.size, norns: norns)
+                    ButtonView(size: 47 * scale,
+                              onPress: { norns.keyPress(1) },
+                              onRelease: { norns.keyRelease(1) })
+                        .position(x: 102 * scale, y: 170 * scale)
 
-                // E1
-                EncoderView(size: CustomLayout.baseEncoder * norns.customLayout.e1.scale) { delta in
-                    norns.encoderTurn(1, delta: delta)
-                }
-                .editablePosition(keyPath: \.e1, windowSize: geo.size, norns: norns)
-
-                // E2
-                EncoderView(size: CustomLayout.baseEncoder * norns.customLayout.e2.scale) { delta in
-                    norns.encoderTurn(2, delta: delta)
-                }
-                .editablePosition(keyPath: \.e2, windowSize: geo.size, norns: norns)
-
-                // E3
-                EncoderView(size: CustomLayout.baseEncoder * norns.customLayout.e3.scale) { delta in
-                    norns.encoderTurn(3, delta: delta)
-                }
-                .editablePosition(keyPath: \.e3, windowSize: geo.size, norns: norns)
-
-                // K2
-                ButtonView(size: CustomLayout.baseButton * norns.customLayout.k2.scale,
-                          onPress: { norns.keyPress(2) },
-                          onRelease: { norns.keyRelease(2) })
-                .editablePosition(keyPath: \.k2, windowSize: geo.size, norns: norns)
-
-                // K3
-                ButtonView(size: CustomLayout.baseButton * norns.customLayout.k3.scale,
-                          onPress: { norns.keyPress(3) },
-                          onRelease: { norns.keyRelease(3) })
-                .editablePosition(keyPath: \.k3, windowSize: geo.size, norns: norns)
-
-                // Edit mode indicator
-                if norns.isEditingLayout {
-                    VStack {
-                        HStack {
-                            Text("EDIT MODE — drag to move, scroll to resize")
-                                .font(.system(size: 10, weight: .bold, design: .monospaced))
-                                .foregroundColor(.white.opacity(0.5))
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(Color.white.opacity(0.1))
-                                .cornerRadius(4)
-                            Spacer()
-                        }
-                        Spacer()
+                    EncoderView(size: 65 * scale) { delta in
+                        norns.encoderTurn(1, delta: delta)
                     }
-                    .padding(8)
-                    .allowsHitTesting(false)
+                    .position(x: 202 * scale, y: 156 * scale)
+
+                    ScreenView(
+                        image: norns.screenImage,
+                        width: 320 * scale,
+                        height: 160 * scale,
+                        connectionHealth: norns.connectionHealth
+                    )
+                    .position(x: 220 * scale, y: 318 * scale)
+
+                    EncoderView(size: 65 * scale) { delta in
+                        norns.encoderTurn(2, delta: delta)
+                    }
+                    .position(x: 463 * scale, y: 262 * scale)
+
+                    EncoderView(size: 65 * scale) { delta in
+                        norns.encoderTurn(3, delta: delta)
+                    }
+                    .position(x: 587 * scale, y: 262 * scale)
+
+                    ButtonView(size: 43 * scale,
+                              onPress: { norns.keyPress(2) },
+                              onRelease: { norns.keyRelease(2) })
+                        .position(x: 463 * scale, y: 363 * scale)
+
+                    ButtonView(size: 43 * scale,
+                              onPress: { norns.keyPress(3) },
+                              onRelease: { norns.keyRelease(3) })
+                        .position(x: 573 * scale, y: 363 * scale)
                 }
+                .frame(width: w, height: h)
             }
-            .frame(width: w, height: h)
+            .frame(width: geo.size.width, height: geo.size.height)
         }
         .ignoresSafeArea()
     }
@@ -205,6 +189,8 @@ struct NornsView: View {
             AnimatedGradientView()
         case .glass:
             VisualEffectBackground()
+        case .punk:
+            PunkDitherBackground()
         }
     }
 
@@ -247,6 +233,9 @@ struct NornsView: View {
                 }
                 Button(norns.customBackground == .glass ? "Glass ✓" : "Glass") {
                     norns.customBackground = .glass
+                }
+                Button(norns.customBackground == .punk ? "Punk ✓" : "Punk") {
+                    norns.customBackground = .punk
                 }
             }
             Button("Reset Layout") {
@@ -295,61 +284,6 @@ struct NornsView: View {
             window.contentMinSize = NSSize(width: 300, height: 200)
             window.minSize = NSSize(width: 300, height: 200)
         }
-    }
-}
-
-// MARK: - Editable Position Modifier
-
-struct EditablePositionModifier: ViewModifier {
-    let keyPath: WritableKeyPath<CustomLayout, ComponentLayout>
-    let windowSize: CGSize
-    let norns: NornsConnection
-
-    @State private var dragOffset: CGSize = .zero
-
-    func body(content: Content) -> some View {
-        let layout = norns.customLayout[keyPath: keyPath]
-        let x = layout.x * windowSize.width + dragOffset.width
-        let y = layout.y * windowSize.height + dragOffset.height
-
-        content
-            .overlay(
-                Group {
-                    if norns.isEditingLayout {
-                        RoundedRectangle(cornerRadius: 4)
-                            .stroke(Color.cyan.opacity(0.5), lineWidth: 1.5)
-                            .allowsHitTesting(false)
-                    }
-                }
-            )
-            .position(x: x, y: y)
-            .gesture(norns.isEditingLayout ?
-                DragGesture()
-                    .onChanged { value in
-                        dragOffset = value.translation
-                    }
-                    .onEnded { value in
-                        var comp = norns.customLayout[keyPath: keyPath]
-                        comp.x += value.translation.width / windowSize.width
-                        comp.y += value.translation.height / windowSize.height
-                        comp.x = max(0.05, min(0.95, comp.x))
-                        comp.y = max(0.05, min(0.95, comp.y))
-                        norns.customLayout[keyPath: keyPath] = comp
-                        norns.saveCustomLayout()
-                        dragOffset = .zero
-                    }
-                : nil
-            )
-    }
-}
-
-extension View {
-    func editablePosition(
-        keyPath: WritableKeyPath<CustomLayout, ComponentLayout>,
-        windowSize: CGSize,
-        norns: NornsConnection
-    ) -> some View {
-        modifier(EditablePositionModifier(keyPath: keyPath, windowSize: windowSize, norns: norns))
     }
 }
 
@@ -437,4 +371,95 @@ struct VisualEffectBackground: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: NSVisualEffectView, context: Context) {}
+}
+
+// MARK: - Punk Dither Background (1-bit glitch aesthetic)
+
+struct PunkDitherBackground: View {
+    private static let bayer: [CGFloat] = [
+        0.0/16, 8.0/16, 2.0/16, 10.0/16,
+        12.0/16, 4.0/16, 14.0/16, 6.0/16,
+        3.0/16, 11.0/16, 1.0/16, 9.0/16,
+        15.0/16, 7.0/16, 13.0/16, 5.0/16
+    ]
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 12)) { timeline in
+            let t = timeline.date.timeIntervalSinceReferenceDate
+            Canvas { ctx, size in
+                Self.draw(ctx: &ctx, size: size, t: t)
+            }
+        }
+    }
+
+    private static func pixelValue(fx: CGFloat, fy: CGFloat, px: Int, py: Int, t: Double) -> Bool {
+        var val: CGFloat = 0
+
+        // Morphing blob 1
+        let bx1: CGFloat = 0.5 + 0.4 * sin(t * 0.13 + 1.7)
+        let by1: CGFloat = 0.5 + 0.3 * cos(t * 0.11 + 0.5)
+        let dx1 = fx - bx1
+        let dy1 = fy - by1
+        let d1 = sqrt(dx1 * dx1 + dy1 * dy1)
+        val += max(0, 0.5 - d1) * 1.6
+
+        // Morphing blob 2
+        let bx2: CGFloat = 0.5 + 0.35 * cos(t * 0.09 + 3.1)
+        let by2: CGFloat = 0.5 + 0.4 * sin(t * 0.14 + 2.2)
+        let dx2 = fx - bx2
+        let dy2 = fy - by2
+        let d2 = sqrt(dx2 * dx2 + dy2 * dy2)
+        val += max(0, 0.4 - d2) * 1.4
+
+        // Wave bands
+        let waveArg: CGFloat = (fx * 8 + fy * 6 + CGFloat(t) * 0.3) * .pi
+        val += sin(waveArg) * 0.3
+
+        // Glitch bars
+        let glitchSeed: Int = Int(t * 2) &* 2654435761
+        if (px / 20 + glitchSeed) % 7 == 0 { val += 0.4 }
+
+        // Scan lines
+        let scan = sin(CGFloat(py) * 0.5 + CGFloat(t) * 4.0)
+        if scan > 0.95 { val += 0.6 }
+
+        // Bayer dither threshold
+        let threshold = bayer[(py % 4) * 4 + (px % 4)]
+        return val > threshold
+    }
+
+    private static func draw(ctx: inout GraphicsContext, size: CGSize, t: Double) {
+        let w = Int(size.width)
+        let h = Int(size.height)
+        let step = 3
+
+        ctx.fill(Path(CGRect(origin: .zero, size: size)), with: .color(.black))
+
+        let whiteColor = Color.white.opacity(0.85)
+        for py in stride(from: 0, to: h, by: step) {
+            let fy = CGFloat(py) / CGFloat(h)
+            for px in stride(from: 0, to: w, by: step) {
+                let fx = CGFloat(px) / CGFloat(w)
+                if pixelValue(fx: fx, fy: fy, px: px, py: py, t: t) {
+                    ctx.fill(
+                        Path(CGRect(x: px, y: py, width: step, height: step)),
+                        with: .color(whiteColor)
+                    )
+                }
+            }
+        }
+
+        // Glitch tears
+        let tearCount = (Int(t * 3) % 4) + 1
+        for i in 0..<tearCount {
+            let seed: UInt64 = UInt64(t * 7 + Double(i) * 13) &* 6364136223846793005
+            let tearY = CGFloat(seed % UInt64(h))
+            let tearH = CGFloat(2 + (seed >> 16) % 8)
+            let offset = CGFloat(Int(seed >> 32) % 20) - 10
+            ctx.fill(
+                Path(CGRect(x: offset, y: tearY, width: size.width, height: tearH)),
+                with: .color(.black)
+            )
+        }
+    }
 }
