@@ -39,23 +39,20 @@ final class AudioStreamer {
         let port = streamPort
 
         // 1. Kill any previous stream processes
-        maiden.sendLua("os.execute('pkill -f NornsRemoteAudio 2>/dev/null')")
+        maiden.sendLua("os.execute([[pkill -f NornsRemoteAudio 2>/dev/null]])")
+        maiden.sendLua("os.execute([[pkill -f 'nc -l -p \(port)' 2>/dev/null]])")
 
-        // 2. Start ffmpeg → nc pipeline (simple individual commands)
-        DispatchQueue.global().asyncAfter(deadline: .now() + 0.5) {
-            // Start ffmpeg piped to nc in background — single simple command
-            maiden.sendLua("os.execute('nohup bash -c \"ffmpeg -f jack -i NornsRemoteAudio -f s16le -ar 48000 -ac 2 pipe:1 2>/dev/null | nc -l -p \(port)\" &')")
+        // 2. Start ffmpeg → nc pipeline (use Lua [[ ]] strings to avoid quote issues)
+        DispatchQueue.global().asyncAfter(deadline: .now() + 1.0) {
+            maiden.sendLua("os.execute([[ffmpeg -f jack -i NornsRemoteAudio -f s16le -ar 48000 -ac 2 pipe:1 2>/dev/null | nc -l -p \(port) &]])")
             print("[Audio] Sent ffmpeg+nc start command")
         }
 
-        // 3. Connect JACK ports after ffmpeg registers
-        DispatchQueue.global().asyncAfter(deadline: .now() + 2.5) {
-            maiden.sendLua("os.execute('jack_connect crone:output_1 NornsRemoteAudio:input_1 2>/dev/null')")
-            print("[Audio] Sent jack_connect output_1")
-        }
-        DispatchQueue.global().asyncAfter(deadline: .now() + 2.8) {
-            maiden.sendLua("os.execute('jack_connect crone:output_2 NornsRemoteAudio:input_2 2>/dev/null')")
-            print("[Audio] Sent jack_connect output_2")
+        // 3. Connect JACK ports after ffmpeg registers with JACK
+        DispatchQueue.global().asyncAfter(deadline: .now() + 3.5) {
+            maiden.sendLua("os.execute([[jack_connect crone:output_1 NornsRemoteAudio:input_1]])")
+            maiden.sendLua("os.execute([[jack_connect crone:output_2 NornsRemoteAudio:input_2]])")
+            print("[Audio] Sent jack_connect commands")
         }
 
         // 3. Setup AVAudioEngine on Mac side
@@ -77,11 +74,12 @@ final class AudioStreamer {
         playerNode = player
 
         // 4. Connect TCP after giving norns time to start the pipeline
-        DispatchQueue.global().asyncAfter(deadline: .now() + 4.0) { [weak self] in
+        //    Retry up to 5 times if connection refused (nc not ready yet)
+        DispatchQueue.global().asyncAfter(deadline: .now() + 4.5) { [weak self] in
             guard let self = self, self.isStreaming else { return }
             print("[Audio] Connecting TCP to \(host):\(port)...")
             self.statusMessage = "Connecting…"
-            self.connectTCP(host: host)
+            self.connectTCP(host: host, retriesLeft: 5)
         }
     }
 
@@ -99,37 +97,65 @@ final class AudioStreamer {
         connection = nil
         accumulator = Data()
 
-        maiden.sendLua("os.execute('pkill -f norns_audio_stream 2>/dev/null; pkill -f NornsRemoteAudio 2>/dev/null')")
+        maiden.sendLua("os.execute([[pkill -f NornsRemoteAudio 2>/dev/null]])")
     }
 
     // MARK: - TCP
 
-    private func connectTCP(host: String) {
+    private var retryHost: String = ""
+
+    private func connectTCP(host: String, retriesLeft: Int) {
+        guard isStreaming else { return }
+
+        retryHost = host
         let nwHost = NWEndpoint.Host(host)
         let nwPort = NWEndpoint.Port(rawValue: streamPort)!
         let tcp = NWProtocolTCP.Options()
-        tcp.noDelay = true  // minimize latency
+        tcp.noDelay = true
+        tcp.connectionTimeout = 5
         let params = NWParameters(tls: nil, tcp: tcp)
         let conn = NWConnection(host: nwHost, port: nwPort, using: params)
 
         conn.stateUpdateHandler = { [weak self] state in
+            guard let self = self else { return }
             switch state {
             case .ready:
-                print("[Audio] TCP connected to \(host):\(self?.streamPort ?? 0)")
+                print("[Audio] TCP connected to \(host):\(self.streamPort)")
                 DispatchQueue.main.async {
-                    self?.statusMessage = "Connected — waiting for audio…"
+                    self.statusMessage = "Connected — waiting for audio…"
                 }
-                self?.receiveLoop()
+                self.receiveLoop()
             case .waiting(let error):
-                print("[Audio] TCP waiting: \(error)")
-                DispatchQueue.main.async {
-                    self?.statusMessage = "Waiting: \(error.localizedDescription)"
+                print("[Audio] TCP waiting: \(error) — retries left: \(retriesLeft)")
+                conn.cancel()
+                if retriesLeft > 0 {
+                    DispatchQueue.main.async {
+                        self.statusMessage = "Retrying… (\(retriesLeft))"
+                    }
+                    DispatchQueue.global().asyncAfter(deadline: .now() + 1.5) {
+                        self.connectTCP(host: host, retriesLeft: retriesLeft - 1)
+                    }
+                } else {
+                    DispatchQueue.main.async {
+                        self.statusMessage = "Connection failed"
+                        self.isStreaming = false
+                    }
                 }
             case .failed(let error):
-                print("[Audio] TCP failed: \(error)")
-                DispatchQueue.main.async {
-                    self?.statusMessage = "Connection failed"
-                    self?.isStreaming = false
+                print("[Audio] TCP failed: \(error) — retries left: \(retriesLeft)")
+                conn.cancel()
+                if retriesLeft > 0 {
+                    DispatchQueue.main.async {
+                        self.statusMessage = "Retrying… (\(retriesLeft))"
+                    }
+                    DispatchQueue.global().asyncAfter(deadline: .now() + 1.5) {
+                        self.connectTCP(host: host, retriesLeft: retriesLeft - 1)
+                    }
+                } else {
+                    DispatchQueue.main.async {
+                        self.statusMessage = "Connection failed"
+                        self.isStreaming = false
+                    }
                 }
             case .cancelled:
                 break
