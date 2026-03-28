@@ -65,6 +65,7 @@ final class NornsConnection {
     // Audio Control
     var isMuted = false
     var isStreamingAudio = false
+    var volume: Double = 0.75
 
     private var failCount = 0
 
@@ -452,14 +453,13 @@ final class NornsConnection {
         }
     }
 
-    func volumeUp() {
-        // Turn E1 (system volume) up
-        encoderTurn(1, delta: 1)
-    }
-
-    func volumeDown() {
-        // Turn E1 (system volume) down
-        encoderTurn(1, delta: -1)
+    func setVolume(_ v: Double) {
+        volume = v
+        // Set norns system volume (0–1 range)
+        let level = max(0, min(1, v))
+        maiden.sendLua("params:set('output_level', \(level * 100 - 100))")
+        // Also set local stream volume
+        audioStreamer.engine?.mainMixerNode.outputVolume = Float(level)
     }
 
     func toggleAudioStream() {

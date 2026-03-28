@@ -14,7 +14,7 @@ final class AudioStreamer {
 
     private let streamPort: UInt16 = 12346
     private var connection: NWConnection?
-    private var engine: AVAudioEngine?
+    private(set) var engine: AVAudioEngine?
     private var playerNode: AVAudioPlayerNode?
     private let outputFormat: AVAudioFormat
 

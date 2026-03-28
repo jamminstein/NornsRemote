@@ -193,8 +193,13 @@ struct MenuBarView: View {
                 norns.toggleMute()
             }
             Divider()
-            Button("Volume Up") { norns.volumeUp() }
-            Button("Volume Down") { norns.volumeDown() }
+            Slider(value: Binding(
+                get: { norns.volume },
+                set: { norns.setVolume($0) }
+            ), in: 0...1) {
+                Text("Volume")
+            }
+            .frame(width: 180)
         }
 
         Divider()
