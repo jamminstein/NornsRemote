@@ -37,24 +37,11 @@ final class AudioStreamer {
 
         let port = streamPort
 
-        // 1. Kill any previous stream processes
-        maiden.sendLua("os.execute([[pkill -f NornsRemoteAudio 2>/dev/null]])")
-        maiden.sendLua("os.execute([[pkill -f 'nc -l -p \(port)' 2>/dev/null]])")
+        // Audio stream service must be running on norns (started via SSH).
+        // The app just connects to the TCP port.
+        print("[Audio] Connecting to norns audio stream on port \(port)...")
 
-        // 2. Start ffmpeg → nc pipeline (use Lua [[ ]] strings to avoid quote issues)
-        DispatchQueue.global().asyncAfter(deadline: .now() + 1.0) {
-            maiden.sendLua("os.execute([[ffmpeg -f jack -i NornsRemoteAudio -f s16le -ar 48000 -ac 2 pipe:1 2>/dev/null | nc -l -p \(port) &]])")
-            print("[Audio] Sent ffmpeg+nc start command")
-        }
-
-        // 3. Connect JACK ports after ffmpeg registers with JACK
-        DispatchQueue.global().asyncAfter(deadline: .now() + 3.5) {
-            maiden.sendLua("os.execute([[jack_connect crone:output_1 NornsRemoteAudio:input_1]])")
-            maiden.sendLua("os.execute([[jack_connect crone:output_2 NornsRemoteAudio:input_2]])")
-            print("[Audio] Sent jack_connect commands")
-        }
-
-        // 4. Setup AVAudioEngine on Mac side
+        // Setup AVAudioEngine on Mac side
         let eng = AVAudioEngine()
         let player = AVAudioPlayerNode()
         eng.attach(player)
@@ -72,9 +59,9 @@ final class AudioStreamer {
         engine = eng
         playerNode = player
 
-        // 5. Connect TCP after giving norns time to start the pipeline
-        //    Retry up to 5 times if connection refused (nc not ready yet)
-        DispatchQueue.global().asyncAfter(deadline: .now() + 4.5) { [weak self] in
+        // Connect TCP — stream service should already be running on norns
+        //    Retry up to 5 times if connection refused
+        DispatchQueue.global().asyncAfter(deadline: .now() + 0.5) { [weak self] in
             guard let self = self, self.isStreaming else { return }
             print("[Audio] Connecting TCP to \(host):\(port)...")
             self.statusMessage = "Connecting…"
@@ -96,7 +83,7 @@ final class AudioStreamer {
         connection = nil
         accumulator = Data()
 
-        maiden.sendLua("os.execute([[pkill -f NornsRemoteAudio 2>/dev/null]])")
+        // Don't kill the norns-side service — it loops and waits for reconnection
     }
 
     // MARK: - TCP
@@ -236,11 +223,13 @@ final class AudioStreamer {
                 peak = max(peak, abs(l), abs(r))
             }
 
+
             DispatchQueue.main.async { [weak self] in
                 self?.level = peak
             }
         }
 
         playerNode.scheduleBuffer(buffer)
+
     }
 }
