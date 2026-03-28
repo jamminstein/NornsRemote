@@ -5,7 +5,6 @@ import Network
 /// Streams audio from the Norns to the Mac over TCP.
 ///
 /// Pipeline on norns: JACK capture → raw PCM → nc (netcat) → TCP → Mac
-/// Tries ffmpeg first, falls back to jack_capture, then arecord+JACK ALSA plugin.
 @Observable
 final class AudioStreamer {
     var isStreaming = false
@@ -38,25 +37,24 @@ final class AudioStreamer {
 
         let port = streamPort
 
-        // 1. Kill any previous stream processes (aggressive cleanup)
-        maiden.sendLua("os.execute([[pkill -9 -f NornsRemoteAudio 2>/dev/null]])")
-        maiden.sendLua("os.execute([[pkill -9 -f 'nc.*\(port)' 2>/dev/null]])")
-        maiden.sendLua("os.execute([[sleep 0.5]])")
+        // 1. Kill any previous stream processes
+        maiden.sendLua("os.execute([[pkill -f NornsRemoteAudio 2>/dev/null]])")
+        maiden.sendLua("os.execute([[pkill -f 'nc -l -p \(port)' 2>/dev/null]])")
 
-        // 2. Start ffmpeg → nc pipeline with -k (keep-alive: re-accepts after disconnect)
-        DispatchQueue.global().asyncAfter(deadline: .now() + 1.5) {
-            maiden.sendLua("os.execute([[ffmpeg -f jack -i NornsRemoteAudio -f s16le -ar 48000 -ac 2 pipe:1 2>/dev/null | nc -lk -p \(port) &]])")
-            print("[Audio] Sent ffmpeg+nc start command (keep-alive)")
+        // 2. Start ffmpeg → nc pipeline (use Lua [[ ]] strings to avoid quote issues)
+        DispatchQueue.global().asyncAfter(deadline: .now() + 1.0) {
+            maiden.sendLua("os.execute([[ffmpeg -f jack -i NornsRemoteAudio -f s16le -ar 48000 -ac 2 pipe:1 2>/dev/null | nc -l -p \(port) &]])")
+            print("[Audio] Sent ffmpeg+nc start command")
         }
 
         // 3. Connect JACK ports after ffmpeg registers with JACK
-        DispatchQueue.global().asyncAfter(deadline: .now() + 4.0) {
+        DispatchQueue.global().asyncAfter(deadline: .now() + 3.5) {
             maiden.sendLua("os.execute([[jack_connect crone:output_1 NornsRemoteAudio:input_1]])")
             maiden.sendLua("os.execute([[jack_connect crone:output_2 NornsRemoteAudio:input_2]])")
             print("[Audio] Sent jack_connect commands")
         }
 
-        // 3. Setup AVAudioEngine on Mac side
+        // 4. Setup AVAudioEngine on Mac side
         let eng = AVAudioEngine()
         let player = AVAudioPlayerNode()
         eng.attach(player)
@@ -74,7 +72,7 @@ final class AudioStreamer {
         engine = eng
         playerNode = player
 
-        // 4. Connect TCP after giving norns time to start the pipeline
+        // 5. Connect TCP after giving norns time to start the pipeline
         //    Retry up to 5 times if connection refused (nc not ready yet)
         DispatchQueue.global().asyncAfter(deadline: .now() + 4.5) { [weak self] in
             guard let self = self, self.isStreaming else { return }
@@ -98,19 +96,14 @@ final class AudioStreamer {
         connection = nil
         accumulator = Data()
 
-        // Kill everything on norns
-        maiden.sendLua("os.execute([[pkill -9 -f NornsRemoteAudio 2>/dev/null]])")
-        maiden.sendLua("os.execute([[pkill -9 -f 'nc.*\(streamPort)' 2>/dev/null]])")
+        maiden.sendLua("os.execute([[pkill -f NornsRemoteAudio 2>/dev/null]])")
     }
 
     // MARK: - TCP
 
-    private var retryHost: String = ""
-
     private func connectTCP(host: String, retriesLeft: Int) {
         guard isStreaming else { return }
 
-        retryHost = host
         let nwHost = NWEndpoint.Host(host)
         let nwPort = NWEndpoint.Port(rawValue: streamPort)!
         let tcp = NWProtocolTCP.Options()
