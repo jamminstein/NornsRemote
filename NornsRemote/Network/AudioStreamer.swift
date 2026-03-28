@@ -38,18 +38,19 @@ final class AudioStreamer {
 
         let port = streamPort
 
-        // 1. Kill any previous stream processes
-        maiden.sendLua("os.execute([[pkill -f NornsRemoteAudio 2>/dev/null]])")
-        maiden.sendLua("os.execute([[pkill -f 'nc -l -p \(port)' 2>/dev/null]])")
+        // 1. Kill any previous stream processes (aggressive cleanup)
+        maiden.sendLua("os.execute([[pkill -9 -f NornsRemoteAudio 2>/dev/null]])")
+        maiden.sendLua("os.execute([[pkill -9 -f 'nc.*\(port)' 2>/dev/null]])")
+        maiden.sendLua("os.execute([[sleep 0.5]])")
 
-        // 2. Start ffmpeg → nc pipeline (use Lua [[ ]] strings to avoid quote issues)
-        DispatchQueue.global().asyncAfter(deadline: .now() + 1.0) {
-            maiden.sendLua("os.execute([[ffmpeg -f jack -i NornsRemoteAudio -f s16le -ar 48000 -ac 2 pipe:1 2>/dev/null | nc -l -p \(port) &]])")
-            print("[Audio] Sent ffmpeg+nc start command")
+        // 2. Start ffmpeg → nc pipeline with -k (keep-alive: re-accepts after disconnect)
+        DispatchQueue.global().asyncAfter(deadline: .now() + 1.5) {
+            maiden.sendLua("os.execute([[ffmpeg -f jack -i NornsRemoteAudio -f s16le -ar 48000 -ac 2 pipe:1 2>/dev/null | nc -lk -p \(port) &]])")
+            print("[Audio] Sent ffmpeg+nc start command (keep-alive)")
         }
 
         // 3. Connect JACK ports after ffmpeg registers with JACK
-        DispatchQueue.global().asyncAfter(deadline: .now() + 3.5) {
+        DispatchQueue.global().asyncAfter(deadline: .now() + 4.0) {
             maiden.sendLua("os.execute([[jack_connect crone:output_1 NornsRemoteAudio:input_1]])")
             maiden.sendLua("os.execute([[jack_connect crone:output_2 NornsRemoteAudio:input_2]])")
             print("[Audio] Sent jack_connect commands")
@@ -97,7 +98,9 @@ final class AudioStreamer {
         connection = nil
         accumulator = Data()
 
-        maiden.sendLua("os.execute([[pkill -f NornsRemoteAudio 2>/dev/null]])")
+        // Kill everything on norns
+        maiden.sendLua("os.execute([[pkill -9 -f NornsRemoteAudio 2>/dev/null]])")
+        maiden.sendLua("os.execute([[pkill -9 -f 'nc.*\(streamPort)' 2>/dev/null]])")
     }
 
     // MARK: - TCP
