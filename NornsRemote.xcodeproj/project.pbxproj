@@ -18,6 +18,7 @@
 		AA000008 /* MaidenWebSocket.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000008; };
 		AA000009 /* ScreenFetcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000009; };
 		AA000010 /* OSCMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000010; };
+		AA000011 /* AudioStreamer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000030 /* AudioStreamer.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -32,6 +33,7 @@
 		AB000008 /* MaidenWebSocket.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MaidenWebSocket.swift; sourceTree = "<group>"; };
 		AB000009 /* ScreenFetcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenFetcher.swift; sourceTree = "<group>"; };
 		AB000010 /* OSCMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OSCMessage.swift; sourceTree = "<group>"; };
+		AB000030 /* AudioStreamer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioStreamer.swift; sourceTree = "<group>"; };
 		AB000011 /* NornsRemote.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = NornsRemote.entitlements; sourceTree = "<group>"; };
 		AC000001 /* NornsRemote.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NornsRemote.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -82,6 +84,7 @@
 				AB000007 /* OSCClient.swift */,
 				AB000008 /* MaidenWebSocket.swift */,
 				AB000009 /* ScreenFetcher.swift */,
+				AB000030 /* AudioStreamer.swift */,
 			);
 			path = Network;
 			sourceTree = "<group>";
@@ -177,6 +180,7 @@
 				AA000009 /* ScreenFetcher.swift in Sources */,
 				AA000010 /* OSCMessage.swift in Sources */,
 				AB000021 /* NornsMenuBarIcon.swift in Sources */,
+				AA000011 /* AudioStreamer.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

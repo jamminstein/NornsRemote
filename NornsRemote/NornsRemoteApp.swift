@@ -185,7 +185,11 @@ struct MenuBarView: View {
 
         // Audio Control
         Menu("Audio") {
-            Button(norns.isMuted ? "Unmute ✓" : "Mute") {
+            Button(norns.isStreamingAudio ? "Stop Streaming" : "Stream to Mac") {
+                norns.toggleAudioStream()
+            }
+            Divider()
+            Button(norns.isMuted ? "Unmute" : "Mute Norns") {
                 norns.toggleMute()
             }
             Divider()

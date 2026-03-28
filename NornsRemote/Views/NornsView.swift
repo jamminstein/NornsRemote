@@ -256,10 +256,13 @@ struct NornsView: View {
             Color(red: 0.70, green: 0.67, blue: 0.64)
         case .black:
             Color(red: 0.10, green: 0.10, blue: 0.10)
+        case .white:
+            VisualEffectBackground()
         case .gradient:
             AnimatedGradientView()
         case .glass:
-            VisualEffectBackground()
+            Color.clear
+                .contentShape(Rectangle())
         case .punk:
             PunkDitherBackground()
         }
@@ -480,35 +483,38 @@ private struct DragHandle: View {
     @State private var dragOffset: CGSize = .zero
 
     var body: some View {
-        let pos = CGPoint(
+        ZStack {
+            // Filled background — MUST be opaque enough for hit testing
+            RoundedRectangle(cornerRadius: 4)
+                .fill(Color.cyan.opacity(0.12))
+            // Border
+            RoundedRectangle(cornerRadius: 4)
+                .stroke(Color.cyan.opacity(0.8), lineWidth: 2)
+            // Label above
+            Text(label)
+                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                .foregroundColor(.cyan)
+                .offset(y: -(handleHeight / 2 + 14))
+        }
+        .frame(width: handleWidth + 16, height: handleHeight + 16)
+        .contentShape(Rectangle())
+        .gesture(
+            DragGesture(coordinateSpace: .global)
+                .onChanged { value in
+                    dragOffset = value.translation
+                }
+                .onEnded { value in
+                    layout.x += value.translation.width / containerSize.width
+                    layout.y += value.translation.height / containerSize.height
+                    layout.x = max(0.05, min(0.95, layout.x))
+                    layout.y = max(0.05, min(0.95, layout.y))
+                    dragOffset = .zero
+                }
+        )
+        .position(
             x: layout.x * containerSize.width + dragOffset.width,
             y: layout.y * containerSize.height + dragOffset.height
         )
-
-        RoundedRectangle(cornerRadius: 4)
-            .stroke(Color.cyan.opacity(0.8), lineWidth: 2)
-            .background(Color.cyan.opacity(0.05))
-            .clipShape(RoundedRectangle(cornerRadius: 4))
-            .frame(width: handleWidth + 12, height: handleHeight + 12)
-            .overlay(
-                Text(label)
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-                    .foregroundColor(.cyan)
-                    .offset(y: -(handleHeight / 2 + 14))
-            )
-            .contentShape(Rectangle())
-            .position(pos)
-            .gesture(
-                DragGesture()
-                    .onChanged { dragOffset = $0.translation }
-                    .onEnded { value in
-                        layout.x += value.translation.width / containerSize.width
-                        layout.y += value.translation.height / containerSize.height
-                        layout.x = max(0.05, min(0.95, layout.x))
-                        layout.y = max(0.05, min(0.95, layout.y))
-                        dragOffset = .zero
-                    }
-            )
     }
 }
 

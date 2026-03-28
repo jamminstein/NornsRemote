@@ -15,7 +15,7 @@ final class NornsConnection {
         case full, custom, mini
     }
     enum BackgroundStyle: String, Codable, CaseIterable {
-        case original, black, gradient, glass, punk
+        case original, black, white, gradient, glass, punk
     }
     var viewMode: ViewMode = .full
     var isEditingLayout = false
@@ -83,6 +83,7 @@ final class NornsConnection {
     let osc = OSCClient()
     let maiden = MaidenWebSocket()
     let screenFetcher = ScreenFetcher()
+    let audioStreamer = AudioStreamer()
 
     private var pollingTask: Task<Void, Never>?
 
@@ -463,13 +464,10 @@ final class NornsConnection {
 
     func toggleAudioStream() {
         if isStreamingAudio {
-            maiden.sendLua("if _norns_remote_audio then _norns_remote_audio:free() end; _norns_remote_audio = nil")
+            audioStreamer.stop(maiden: maiden)
             isStreamingAudio = false
         } else {
-            maiden.sendLua("""
-            _norns_remote_audio = true
-            print('Audio streaming requires SC network audio setup on norns side.')
-            """)
+            audioStreamer.start(host: host, maiden: maiden)
             isStreamingAudio = true
         }
     }
